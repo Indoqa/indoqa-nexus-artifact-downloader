@@ -31,6 +31,8 @@ public class NexusArtifactDownloaderCliMain {
 
     private static final String OPTION_DELETE = "d";
     private static final String OPTION_COUNT = "c";
+    private static final String OPTION_RELATIVE_SYMLINK = "rsym";
+
     private static final String OPTION_MAVEN_GROUP_ID = "mvng";
     private static final String OPTION_MAVEN_ARTIFACT_ID = "mvna";
     private static final String OPTION_MAVEN_REPOSITORY = "mvnr";
@@ -72,6 +74,9 @@ public class NexusArtifactDownloaderCliMain {
         NexusArtifactDownloader downloader = new NexusArtifactDownloader("https://nexus.dev.indoqa.com",
             username, password, repository);
         try {
+            if (commandLine.hasOption(OPTION_RELATIVE_SYMLINK)) {
+                downloader.createRelativeSymLinks();
+            }
             DownloadResult download = downloader.download(mavenGroupId, artifactId, mavenType);
             LOGGER.info(download.getMessage());
         } catch (DownloaderException e) {
@@ -132,6 +137,7 @@ public class NexusArtifactDownloaderCliMain {
         OptionGroup managementOptionGroup = new OptionGroup();
         managementOptionGroup.addOption(new Option(OPTION_DELETE, "delete", false, "Remove old artifacts"));
         managementOptionGroup.addOption(new Option(OPTION_COUNT, "count", true, "Count of artifacts to keep"));
+        managementOptionGroup.addOption(new Option(OPTION_RELATIVE_SYMLINK, "relative-symlink", false, "Create relative symlinks"));
         options.addOptionGroup(managementOptionGroup);
 
         Option artifactVersionOption = new Option(OPTION_VERSION, "version", true, "Version of the artifact");

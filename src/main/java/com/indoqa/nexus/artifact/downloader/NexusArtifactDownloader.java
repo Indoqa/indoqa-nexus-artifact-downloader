@@ -59,6 +59,8 @@ public class NexusArtifactDownloader {
     private final Executor executor;
     private final String repository;
 
+    private boolean createRelativeSymlinks = false;
+
     public NexusArtifactDownloader(String nexusBaseUrl, String username, String password, String repository) {
         this.nexusBaseUrl = nexusBaseUrl;
         this.executor = Executor.newInstance().auth(username, password).authPreemptive(nexusBaseUrl);
@@ -98,6 +100,10 @@ public class NexusArtifactDownloader {
         return () -> "Symlink created " + link + " target: " + artifactPath;
     }
 
+    public void createRelativeSymLinks() {
+        this.createRelativeSymlinks = true;
+    }
+
     private Path createLink(String mavenArtifactId, String mavenType, Path workingDirectory, Path artifactPath) throws DownloaderException {
         String name = createName(mavenArtifactId, mavenType);
         Path link = workingDirectory.resolve(name).toAbsolutePath();
@@ -105,7 +111,11 @@ public class NexusArtifactDownloader {
             if (Files.exists(link)) {
                 Files.delete(link);
             }
-            Files.createSymbolicLink(link, artifactPath.toAbsolutePath());
+            if (this.createRelativeSymlinks) {
+                Files.createSymbolicLink(link, artifactPath);
+            } else {
+                Files.createSymbolicLink(link, artifactPath.toAbsolutePath());
+            }
             return link;
         }catch (IOException e){
             throw DownloaderException.errorCreatingLink(link, artifactPath, e);
@@ -128,7 +138,12 @@ public class NexusArtifactDownloader {
     }
 
     private Path createArtifactPath(Path working, DownloadableArtifact downloadableArtifact) throws DownloaderException {
-        Path repositoryPath = working.resolve(ARCHIVE_PATH).resolve(this.repository);
+        Path repositoryPath;
+        if (this.createRelativeSymlinks) {
+            repositoryPath = Paths.get(".").resolve(ARCHIVE_PATH).resolve(this.repository);
+        } else {
+            repositoryPath = working.resolve(ARCHIVE_PATH).resolve(this.repository);
+        }
         try{
             Files.createDirectories(repositoryPath);
             return repositoryPath.resolve(downloadableArtifact.getArtifactName());
