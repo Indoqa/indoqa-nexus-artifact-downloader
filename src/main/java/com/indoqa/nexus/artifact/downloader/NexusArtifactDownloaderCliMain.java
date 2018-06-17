@@ -33,6 +33,7 @@ public class NexusArtifactDownloaderCliMain {
     private static final String OPTION_COUNT = "c";
     private static final String OPTION_RELATIVE_SYMLINK = "rsym";
 
+    private static final String OPTION_NEXUS_BASE_URL = "url";
     private static final String OPTION_MAVEN_GROUP_ID = "mvng";
     private static final String OPTION_MAVEN_ARTIFACT_ID = "mvna";
     private static final String OPTION_MAVEN_REPOSITORY = "mvnr";
@@ -65,6 +66,7 @@ public class NexusArtifactDownloaderCliMain {
         String username = commandLine.getOptionValue(OPTION_USERNAME);
         String password = commandLine.getOptionValue(OPTION_PASSWORD);
 
+        String nexusBaseUrl = commandLine.getOptionValue(OPTION_NEXUS_BASE_URL);
         String mavenGroupId = commandLine.getOptionValue(OPTION_MAVEN_GROUP_ID);
         String artifactId = commandLine.getOptionValue(OPTION_MAVEN_ARTIFACT_ID);
         String repository = commandLine.getOptionValue(OPTION_MAVEN_REPOSITORY, DEFAULT_MAVEN_REPOSITORY);
@@ -72,10 +74,7 @@ public class NexusArtifactDownloaderCliMain {
 
         configureLogging(commandLine);
 
-        NexusArtifactDownloader downloader = new NexusArtifactDownloader("https://nexus.dev.indoqa.com",
-            username,
-            password,
-            repository);
+        NexusArtifactDownloader downloader = new NexusArtifactDownloader(nexusBaseUrl, username, password, repository);
 
         if (commandLine.hasOption(OPTION_RELATIVE_SYMLINK)) {
             downloader.createRelativeSymLinks();
@@ -130,6 +129,10 @@ public class NexusArtifactDownloaderCliMain {
 
     private static Options getOptions() {
         Options options = new Options();
+
+        Option nexusBaseUrlOption = new Option(OPTION_NEXUS_BASE_URL, "baseurl", true, "Nexus baseurl");
+        nexusBaseUrlOption.setRequired(true);
+        options.addOption(nexusBaseUrlOption);
 
         Option nexusUsernameOption = new Option(OPTION_USERNAME, "username", true, "Nexus username");
         nexusUsernameOption.setRequired(true);
