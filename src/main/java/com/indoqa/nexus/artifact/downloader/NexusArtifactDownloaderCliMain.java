@@ -44,6 +44,7 @@ public class NexusArtifactDownloaderCliMain {
     private static final String OPTION_VERBOSE = "verbose";
     private static final String DEFAULT_MAVEN_TYPE = "jar";
     private static final String DEFAULT_MAVEN_REPOSITORY = "releases";
+    private static final String DEFAULT_KEEP_ARTIFACTS_COUNT = "3";
 
     public static void main(String[] args) {
         CommandLine commandLine;
@@ -72,11 +73,17 @@ public class NexusArtifactDownloaderCliMain {
         configureLogging(commandLine);
 
         NexusArtifactDownloader downloader = new NexusArtifactDownloader("https://nexus.dev.indoqa.com",
-            username, password, repository);
+            username,
+            password,
+            repository);
+
+        if (commandLine.hasOption(OPTION_RELATIVE_SYMLINK)) {
+            downloader.createRelativeSymLinks();
+        }
+        if (commandLine.hasOption(OPTION_DELETE)) {
+            downloader.deleteOldEntries(getArtifactsToKeepCount(commandLine));
+        }
         try {
-            if (commandLine.hasOption(OPTION_RELATIVE_SYMLINK)) {
-                downloader.createRelativeSymLinks();
-            }
             DownloadResult download = downloader.download(mavenGroupId, artifactId, mavenType);
             LOGGER.info(download.getMessage());
         } catch (DownloaderException e) {
@@ -84,8 +91,26 @@ public class NexusArtifactDownloaderCliMain {
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.error("Stacktrace: ", e.getCause());
             }
-            System.exit(1);
+            System.exit(-1);
         }
+    }
+
+    private static int getArtifactsToKeepCount(CommandLine commandLine) {
+        String optionValue = commandLine.getOptionValue(OPTION_COUNT, DEFAULT_KEEP_ARTIFACTS_COUNT);
+        try {
+            int result = Integer.parseInt(optionValue);
+            if (result < 0) {
+                LOGGER.debug("Negative value {} as count of artifacts to keep supplied. Will be ignored.", result);
+            }
+            return result;
+        } catch (NumberFormatException e) {
+            LOGGER.error("Could not parse count of ertifacts to keep '{}' \n\t {}.", optionValue, e.getMessage());
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.error("Stacktrace: ", e.getCause());
+            }
+            System.exit(-1);
+        }
+        return -1;
     }
 
     private static void configureLogging(CommandLine commandLine) {
@@ -134,11 +159,9 @@ public class NexusArtifactDownloaderCliMain {
         Option mavenArtifactTypeOption = new Option(OPTION_MAVEN_TYPE, "maven-type", true, "Type of the maven artifact");
         options.addOption(mavenArtifactTypeOption);
 
-        OptionGroup managementOptionGroup = new OptionGroup();
-        managementOptionGroup.addOption(new Option(OPTION_DELETE, "delete", false, "Remove old artifacts"));
-        managementOptionGroup.addOption(new Option(OPTION_COUNT, "count", true, "Count of artifacts to keep"));
-        managementOptionGroup.addOption(new Option(OPTION_RELATIVE_SYMLINK, "relative-symlink", false, "Create relative symlinks"));
-        options.addOptionGroup(managementOptionGroup);
+        options.addOption(new Option(OPTION_DELETE, "delete", false, "Remove old artifacts"));
+        options.addOption(new Option(OPTION_COUNT, "count", true, "Count of artifacts to keep"));
+        options.addOption(new Option(OPTION_RELATIVE_SYMLINK, "relative-symlink", false, "Create relative symlinks"));
 
         Option artifactVersionOption = new Option(OPTION_VERSION, "version", true, "Version of the artifact");
         options.addOption(artifactVersionOption);
