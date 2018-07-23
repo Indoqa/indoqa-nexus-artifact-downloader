@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
@@ -32,6 +33,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.indoqa.nexus.artifact.downloader.configuration.ArtifactConfiguration;
+import com.indoqa.nexus.artifact.downloader.configuration.DownloaderConfiguration;
+import com.indoqa.nexus.artifact.downloader.json.JsonDownloadExtractor;
 import com.indoqa.nexus.artifact.downloader.result.DownloadResult;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -58,33 +62,34 @@ public class NexusArtifactDownloader {
     private static final String PATH_REST_SEARCH = "service/rest/beta/search";
     public static final String ARCHIVE_PATH = "archive";
 
-    private final String nexusBaseUrl;
+    private final DownloaderConfiguration configuration;
+
     private final Executor executor;
-    private final String repository;
 
-    private boolean createRelativeSymlinks = false;
-    private boolean deleteOldEntries = false;
-    private int keepNumberOfOldEntries;
-
-    public NexusArtifactDownloader(String nexusBaseUrl, String username, String password, String repository) {
-        this.nexusBaseUrl = nexusBaseUrl;
-        this.executor = Executor.newInstance().auth(username, password).authPreemptive(nexusBaseUrl);
-        this.repository = repository;
+    public NexusArtifactDownloader(DownloaderConfiguration configuration) {
+        this.configuration = configuration;
+        this.executor = Executor
+            .newInstance()
+            .auth(configuration.getUsername(), configuration.getPassword())
+            .authPreemptive(configuration.getNexusBaseUrl());
     }
 
-    public DownloadResult download(String mavenGroupId, String mavenArtifactId, String mavenType) throws DownloaderException {
-        List<DownloadableArtifact> downloadableArtifacts = getDownloadableArtifacts(mavenGroupId, mavenArtifactId, mavenType);
+    public DownloadResult download(ArtifactConfiguration artifactConfiguration) throws DownloaderException {
+        List<DownloadableArtifact> downloadableArtifacts = getDownloadableArtifacts(artifactConfiguration);
         Optional<DownloadableArtifact> first = downloadableArtifacts.stream().max(DownloadableArtifact::compareTo);
 
         if (!first.isPresent()) {
-            throw DownloaderException.notFound(mavenGroupId, mavenArtifactId, mavenType);
+            throw DownloaderException.notFound(
+                artifactConfiguration.getMavenGroupId(),
+                artifactConfiguration.getMavenArtifactId(),
+                artifactConfiguration.getMavenType());
         }
         DownloadableArtifact downloadableArtifact = first.get();
 
         Request get = Request.Get(downloadableArtifact.getDownloadUrl());
 
-        Path workingDirectory = getWorkingDirectory();
-        Path artifactPath = createArtifactPath(workingDirectory, downloadableArtifact);
+        Path workingDirectory = this.getWorkingDirectory(artifactConfiguration);
+        Path artifactPath = this.createArtifactPath(workingDirectory, downloadableArtifact, artifactConfiguration);
         if (!Files.exists(artifactPath)) {
             try {
                 executeRequest(get).saveContent(artifactPath.toFile());
@@ -95,20 +100,21 @@ public class NexusArtifactDownloader {
             LOGGER.debug("Artifact already exists {}", artifactPath);
         }
 
-        String calc = createSha1(artifactPath);
+        String calc = this.createSha1(artifactPath);
         if (!calc.equals(downloadableArtifact.getSha1())) {
             throw DownloaderException.mismatchSha1(downloadableArtifact.getSha1(), calc);
         }
 
-        if (this.deleteOldEntries) {
-            this.deleteEntries(mavenType, artifactPath.getParent());
+        if (this.configuration.deleteOldEntries()) {
+            this.deleteEntries(artifactPath.getParent(), artifactConfiguration);
         }
 
-        Path link = createLink(mavenArtifactId, mavenType, workingDirectory, artifactPath);
+        Path link = createLink(workingDirectory, artifactPath, artifactConfiguration);
         return () -> "Symlink created " + link + " target: " + artifactPath;
     }
 
-    private void deleteEntries(String mavenType, Path artifactParentPath) {
+    private void deleteEntries(Path artifactParentPath, ArtifactConfiguration artifactConfiguration) {
+        String mavenType = artifactConfiguration.getMavenType();
         try {
             long currentTimeInMillis = System.currentTimeMillis();
             List<Path> collect = Files
@@ -133,7 +139,7 @@ public class NexusArtifactDownloader {
                         }
                     }
                 })
-                .skip(this.keepNumberOfOldEntries)
+                .skip(this.configuration.getKeepNumberOfOldEntries())
                 .collect(Collectors.toList());
 
             for (Path path : collect) {
@@ -147,28 +153,21 @@ public class NexusArtifactDownloader {
         }
     }
 
-    public void createRelativeSymLinks() {
-        this.createRelativeSymlinks = true;
-    }
-
-    public void deleteOldEntries(int artifactsToKeepCount) {
-        if (artifactsToKeepCount < 0) {
-            return;
-        }
-        this.deleteOldEntries = true;
-        this.keepNumberOfOldEntries = artifactsToKeepCount + 1;
-    }
-
-    private Path createLink(String mavenArtifactId, String mavenType, Path workingDirectory, Path artifactPath)
+    private Path createLink(Path workingDirectory, Path artifactPath, ArtifactConfiguration artifactConfiguration)
         throws DownloaderException {
-        String name = createName(mavenArtifactId, mavenType);
+        String name = createName(artifactConfiguration.getMavenArtifactId(), artifactConfiguration.getMavenType());
         Path link = workingDirectory.resolve(name).toAbsolutePath();
         try {
-            if (Files.exists(link)) {
+            if (Files.exists(link, LinkOption.NOFOLLOW_LINKS)) {
                 Files.delete(link);
             }
-            if (this.createRelativeSymlinks) {
-                Files.createSymbolicLink(link, artifactPath);
+            if (this.configuration.createRelativeSymlinks()) {
+                if (artifactConfiguration.getName().isPresent()) {
+                    int index = this.findPathIndex(artifactPath, artifactConfiguration.getName().get());
+                    Files.createSymbolicLink(link, Paths.get(".").resolve(artifactPath.subpath(index, artifactPath.getNameCount())));
+                } else {
+                    Files.createSymbolicLink(link, artifactPath);
+                }
             } else {
                 Files.createSymbolicLink(link, artifactPath.toAbsolutePath());
             }
@@ -176,6 +175,15 @@ public class NexusArtifactDownloader {
         } catch (IOException e) {
             throw DownloaderException.errorCreatingLink(link, artifactPath, e);
         }
+    }
+
+    private int findPathIndex(Path path, String name) {
+        for (int i = 0; i < path.getNameCount(); i++) {
+            if (path.getName(i).toString().equals(name)) {
+                return i + 1;
+            }
+        }
+        return 0;
     }
 
     private String createName(String mavenArtifactId, String mavenType) {
@@ -193,12 +201,17 @@ public class NexusArtifactDownloader {
         }
     }
 
-    private Path createArtifactPath(Path working, DownloadableArtifact downloadableArtifact) throws DownloaderException {
+    private Path createArtifactPath(Path working, DownloadableArtifact downloadableArtifact,
+        ArtifactConfiguration artifactConfiguration) throws DownloaderException {
         Path repositoryPath;
-        if (this.createRelativeSymlinks) {
-            repositoryPath = Paths.get(".").resolve(ARCHIVE_PATH).resolve(this.repository);
+        if (this.configuration.createRelativeSymlinks()) {
+            Path basePath = this.configuration.getWorkingPath();
+            if (artifactConfiguration.getName().isPresent()) {
+                basePath = basePath.resolve(artifactConfiguration.getName().get());
+            }
+            repositoryPath = basePath.resolve(ARCHIVE_PATH).resolve(artifactConfiguration.getRepository());
         } else {
-            repositoryPath = working.resolve(ARCHIVE_PATH).resolve(this.repository);
+            repositoryPath = working.resolve(ARCHIVE_PATH).resolve(artifactConfiguration.getRepository());
         }
         try {
             Files.createDirectories(repositoryPath);
@@ -208,40 +221,46 @@ public class NexusArtifactDownloader {
         }
     }
 
-    private Path getWorkingDirectory() {
-        return Paths.get(".").toAbsolutePath().normalize();
+    private Path getWorkingDirectory(ArtifactConfiguration artifactConfiguration) {
+        Path basePath = this.configuration.getWorkingPath();
+
+        if (artifactConfiguration.getName().isPresent()) {
+            basePath = basePath.resolve(artifactConfiguration.getName().get());
+        }
+        return basePath.toAbsolutePath().normalize();
     }
 
-    private List<DownloadableArtifact> getDownloadableArtifacts(String mavenGroupId, String mavenArtifactId, String mavenType)
+    private List<DownloadableArtifact> getDownloadableArtifacts(ArtifactConfiguration artifactConfiguration)
         throws DownloaderException {
         List<DownloadableArtifact> result = new ArrayList<>();
 
-        JSONObject jsonObject = getJsonObject(buildUri(mavenGroupId, mavenArtifactId, Optional.empty()));
-        result.addAll(extractDownloadableArtifacts(jsonObject, mavenType));
-        Optional<String> continuationToken = getContinuationToken(jsonObject);
+        JSONObject jsonObject = this.getJsonObject(buildUri(Optional.empty(), artifactConfiguration));
+        result.addAll(this.extractDownloadableArtifacts(jsonObject, artifactConfiguration));
+        Optional<String> continuationToken = this.getContinuationToken(jsonObject);
 
         while (continuationToken.isPresent()) {
-            jsonObject = getJsonObject(buildUri(mavenGroupId, mavenArtifactId, continuationToken));
-            result.addAll(extractDownloadableArtifacts(jsonObject, mavenType));
-            continuationToken = getContinuationToken(jsonObject);
+            jsonObject = this.getJsonObject(buildUri(continuationToken, artifactConfiguration));
+            result.addAll(this.extractDownloadableArtifacts(jsonObject, artifactConfiguration));
+            continuationToken = this.getContinuationToken(jsonObject);
         }
 
         return result;
     }
 
     private Optional<String> getContinuationToken(JSONObject jsonObject) {
-        return Optional.ofNullable(JsonExtractor.getContinuationToken(jsonObject));
+        return Optional.ofNullable(JsonDownloadExtractor.getContinuationToken(jsonObject));
     }
 
-    private List<DownloadableArtifact> extractDownloadableArtifacts(JSONObject jsonObject, String mavenType) {
+    private List<DownloadableArtifact> extractDownloadableArtifacts(JSONObject jsonObject,
+        ArtifactConfiguration artifactConfiguration) {
         List<DownloadableArtifact> downloadableArtifacts = new ArrayList();
-        ArtifactType requestedArtifactType = ArtifactType.extractFromClassifierExtension(mavenType);
-        List<JSONObject> items = JsonExtractor.getItems(jsonObject);
+        ArtifactType requestedArtifactType = ArtifactType.extractFromClassifierExtension(artifactConfiguration.getMavenType());
+        List<JSONObject> items = JsonDownloadExtractor.getItems(jsonObject);
         for (JSONObject item : items) {
-            String version = JsonExtractor.getVersion(item);
-            List<JSONObject> assets = JsonExtractor.getAssets(item);
+            String version = JsonDownloadExtractor.getVersion(item);
+            List<JSONObject> assets = JsonDownloadExtractor.getAssets(item);
             for (JSONObject asset : assets) {
-                String downloadUrl = JsonExtractor.getDownloadUrl(asset);
+                String downloadUrl = JsonDownloadExtractor.getDownloadUrl(asset);
                 ArtifactType artifactType = extractArtifactType(version, downloadUrl);
                 if (filterArtifactType(artifactType)) {
                     continue;
@@ -249,7 +268,7 @@ public class NexusArtifactDownloader {
                 if (!requestedArtifactType.includes(artifactType)) {
                     continue;
                 }
-                String sha1 = JsonExtractor.getSha1(asset);
+                String sha1 = JsonDownloadExtractor.getSha1(asset);
                 downloadableArtifacts.add(DownloadableArtifact.of(version, downloadUrl, sha1));
             }
         }
@@ -294,13 +313,13 @@ public class NexusArtifactDownloader {
         }
     }
 
-    private URI buildUri(String mavenGroupId, String mavenArtifactId, Optional<String> continuationToken) throws DownloaderException {
+    private URI buildUri(Optional<String> continuationToken, ArtifactConfiguration artifactConfiguration) throws DownloaderException {
         try {
-            URIBuilder uriBuilder = new URIBuilder(this.nexusBaseUrl)
+            URIBuilder uriBuilder = new URIBuilder(this.configuration.getNexusBaseUrl())
                 .setPath(PATH_REST_SEARCH)
-                .addParameter(MAVEN_GROUP_ID, mavenGroupId)
-                .addParameter(MAVEN_ARTIFACT_ID, mavenArtifactId)
-                .addParameter(REPOSITORY, this.repository);
+                .addParameter(MAVEN_GROUP_ID, artifactConfiguration.getMavenGroupId())
+                .addParameter(MAVEN_ARTIFACT_ID, artifactConfiguration.getMavenArtifactId())
+                .addParameter(REPOSITORY, artifactConfiguration.getRepository());
 
             continuationToken.ifPresent(token -> uriBuilder.addParameter(CONTINUATION_TOKEN, token));
             return uriBuilder.build();

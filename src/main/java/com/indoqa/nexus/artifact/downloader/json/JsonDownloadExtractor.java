@@ -14,16 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.indoqa.nexus.artifact.downloader;
+package com.indoqa.nexus.artifact.downloader.json;
 
-import java.util.Collections;
+import static com.indoqa.nexus.artifact.downloader.json.JsonHelper.*;
+
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.json.JSONObject;
 
-public class JsonExtractor {
+public class JsonDownloadExtractor {
 
     public static List<JSONObject> getItems(JSONObject jsonObject) {
         return getJsonArrayAsList(jsonObject, "items");
@@ -42,41 +41,11 @@ public class JsonExtractor {
     }
 
     public static String getSha1(JSONObject asset) {
-        return getString(getJsonObject(asset, "checksum"), "sha1");
+        return getString(getJsonObject(asset, "checksum").get(), "sha1");
     }
 
     public static String getContinuationToken(JSONObject jsonObject) {
         return getString(jsonObject, "continuationToken", null);
     }
 
-    private static JSONObject getJsonObject(JSONObject jsonObject, String key) {
-        if (!jsonObject.has(key) || jsonObject.isNull(key)) {
-            return new JSONObject();
-        }
-        return jsonObject.getJSONObject(key);
-    }
-
-    private static String getString(JSONObject jsonObject, String key, String defaultValue) {
-        if (!jsonObject.has(key) || jsonObject.isNull(key)) {
-            return defaultValue;
-        }
-        return jsonObject.getString(key);
-    }
-
-    private static String getString(JSONObject jsonObject, String key) {
-        return getString(jsonObject, key, "");
-    }
-
-    private static List<JSONObject> getJsonArrayAsList(JSONObject jsonObject, String key) {
-        if (!jsonObject.has(key)) {
-            return Collections.emptyList();
-        }
-        return jsonObject
-            .getJSONArray(key)
-            .toList()
-            .stream()
-            .filter(e -> e instanceof Map)
-            .map(e -> new JSONObject((Map) e))
-            .collect(Collectors.toList());
-    }
 }
