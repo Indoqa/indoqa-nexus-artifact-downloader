@@ -44,6 +44,8 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
     private boolean createRelativeSymlinks;
     private int countToKeep;
     private boolean deleteOld;
+    private boolean verbose;
+    private boolean moreVerbose;
 
     public static DownloaderConfiguration create(String[] args) {
         if (args.length > 1) {
@@ -101,6 +103,9 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
         result.setBaseUrl(getConfigParameter(config, "nexusUrl"));
         result.setCreateRelativeSymlinks(config.getBoolean("createRelativeSymlinks"));
 
+        result.setVerbose(config.getBoolean("verbose"));
+        result.setMoreVerbose(config.getBoolean("moreVerbose"));
+
         JsonHelper.getOptionalString(config, "basePath").ifPresent(value -> result.setBasePath(Paths.get(value)));
 
         JSONObject oldEntries = config.getJSONObject("oldEntries");
@@ -125,14 +130,22 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
         LOGGER.info("No (valid) configuration file path was supplied as first argument indoqa-nexus-downloader.jar [path]");
     }
 
+    public void setVerbose(boolean verbose) {
+        this.verbose = verbose;
+    }
+
     @Override
     public boolean verbose() {
-        return false;
+        return this.verbose;
+    }
+
+    public void setMoreVerbose(boolean moreVerbose) {
+        this.moreVerbose = moreVerbose;
     }
 
     @Override
     public boolean moreVerbose() {
-        return false;
+        return this.moreVerbose;
     }
 
     public void setBasePath(Path basePath) {

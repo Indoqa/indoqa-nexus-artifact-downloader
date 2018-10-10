@@ -47,7 +47,6 @@ public class NexusArtifactDownloaderCliMain {
 
         configureLogging(configuration);
 
-
         NexusArtifactDownloader downloader = new NexusArtifactDownloader(configuration);
         try {
             for (ArtifactConfiguration artifactConfiguration : configuration.getArtifactConfigurations()) {
