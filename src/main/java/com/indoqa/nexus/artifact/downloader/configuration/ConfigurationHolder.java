@@ -16,7 +16,7 @@
  */
 package com.indoqa.nexus.artifact.downloader.configuration;
 
-public class ConfigurationHolder {
+public final class ConfigurationHolder {
 
     private DownloaderConfiguration downloaderConfiguration;
 

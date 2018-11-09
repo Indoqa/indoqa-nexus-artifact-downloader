@@ -24,7 +24,7 @@ import java.util.Locale;
 import org.apache.http.client.fluent.Request;
 import org.apache.http.entity.ContentType;
 
-public class DownloaderException extends Exception {
+public final class DownloaderException extends Exception {
 
     private static Locale DEFAULT = Locale.GERMAN;
 

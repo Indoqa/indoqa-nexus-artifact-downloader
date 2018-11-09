@@ -52,7 +52,7 @@ public class CommandlineDownloaderConfiguration implements DownloaderConfigurati
 
     private CommandLine commandLine;
 
-    public static ConfigurationHolder create(String args[]) {
+    public static ConfigurationHolder create(String[] args) {
         try {
             DefaultParser parser = new DefaultParser();
             CommandLine commandLine = parser.parse(getOptions(), args);

@@ -35,6 +35,8 @@ import org.slf4j.LoggerFactory;
 public class FileDownloaderConfiguration implements DownloaderConfiguration {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileDownloaderConfiguration.class);
+    public static final String BASE_CONFIG = "baseConfig";
+    public static final String OLD_ENTRIES = "oldEntries";
 
     private List<ArtifactConfiguration> artifactConfigurations = new ArrayList<>();
     private Path basePath;
@@ -81,39 +83,42 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
         throws ConfigurationException {
         try {
             JSONArray artifacts = jsonObject.getJSONArray("mavenArtifacts");
-
-            for (int i = 0; i < artifacts.length(); i++) {
-                try {
-                    result.add(FileArtifactConfiguration.create(artifacts.getJSONObject(i)));
-                } catch (JSONException | ConfigurationException e) {
-                    LOGGER.error("Could not read artifact configuration number {}, ", i, e);
-                }
-            }
+            extractArtifactConfigurations(result, artifacts);
         } catch (JSONException e) {
             LOGGER.error("Could not extract artifacts configuration from config. {}", e.getMessage());
             throw ConfigurationException.missingParameter("mavenArtifacts", "config", e);
         }
     }
 
+    private static void extractArtifactConfigurations(FileDownloaderConfiguration result, JSONArray artifacts) {
+        for (int i = 0; i < artifacts.length(); i++) {
+            try {
+                result.add(FileArtifactConfiguration.create(artifacts.getJSONObject(i)));
+            } catch (JSONException | ConfigurationException e) {
+                LOGGER.error("Could not read artifact configuration number {}, ", i, e);
+            }
+        }
+    }
+
     private static void extractConfigParameters(JSONObject jsonObject, FileDownloaderConfiguration result)
         throws ConfigurationException {
         JSONObject config = JsonHelper
-            .getJsonObject(jsonObject, "baseConfig")
-            .orElseThrow(() -> ConfigurationException.missingParameter("baseConfig", "Configuration file"));
+            .getJsonObject(jsonObject, BASE_CONFIG)
+            .orElseThrow(() -> ConfigurationException.missingParameter(BASE_CONFIG, "Configuration file"));
         result.setUsername(getConfigParameter(config, "nexusUsername"));
         result.setPassword(getConfigParameter(config, "nexusPassword"));
         result.setBaseUrl(getConfigParameter(config, "nexusUrl"));
-        result.setCreateRelativeSymlinks(getBooleanConfigParameter("baseConfig", config, "createRelativeSymlinks"));
+        result.setCreateRelativeSymlinks(getBooleanConfigParameter(BASE_CONFIG, config, "createRelativeSymlinks"));
 
-        result.setVerbose(getBooleanConfigParameter("baseConfig", config, "verbose"));
-        result.setMoreVerbose(getBooleanConfigParameter("baseConfig", config, "moreVerbose"));
+        result.setVerbose(getBooleanConfigParameter(BASE_CONFIG, config, "verbose"));
+        result.setMoreVerbose(getBooleanConfigParameter(BASE_CONFIG, config, "moreVerbose"));
 
         JsonHelper.getOptionalString(config, "basePath").ifPresent(value -> result.setBasePath(Paths.get(value)));
 
-        Optional<JSONObject> oldEntries = JsonHelper.getJsonObject(config,"oldEntries");
+        Optional<JSONObject> oldEntries = JsonHelper.getJsonObject(config, OLD_ENTRIES);
         if (oldEntries.isPresent()) {
-            result.setCountToKeep(getIntegerParameter("oldEntries", oldEntries.get(), "countToKeep"));
-            result.setDeleteOld(getBooleanConfigParameter("oldEntries", oldEntries.get(), "delete"));
+            result.setCountToKeep(getIntegerParameter(OLD_ENTRIES, oldEntries.get(), "countToKeep"));
+            result.setDeleteOld(getBooleanConfigParameter(OLD_ENTRIES, oldEntries.get(), "delete"));
         }
     }
 
@@ -129,7 +134,7 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
         try {
             return config.getString(parameter);
         } catch (JSONException e) {
-            throw ConfigurationException.missingParameter(parameter, "baseConfig", e);
+            throw ConfigurationException.missingParameter(parameter, BASE_CONFIG, e);
         }
     }
 

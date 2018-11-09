@@ -22,7 +22,7 @@ import java.util.List;
 
 import org.json.JSONObject;
 
-public class JsonDownloadExtractor {
+public final class JsonDownloadExtractor {
 
     public static List<JSONObject> getItems(JSONObject jsonObject) {
         return getJsonArrayAsList(jsonObject, "items");

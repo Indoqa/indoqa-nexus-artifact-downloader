@@ -18,7 +18,7 @@ package com.indoqa.nexus.artifact.downloader.configuration;
 
 import java.util.Locale;
 
-public class ConfigurationException extends Exception {
+public final class ConfigurationException extends Exception {
 
     private static Locale DEFAULT = Locale.GERMAN;
 
