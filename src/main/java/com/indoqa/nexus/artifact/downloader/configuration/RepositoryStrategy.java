@@ -16,34 +16,6 @@
  */
 package com.indoqa.nexus.artifact.downloader.configuration;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
-public interface DownloaderConfiguration {
-
-    boolean verbose();
-
-    boolean moreVerbose();
-
-    String getUsername();
-
-    String getPassword();
-
-    String getNexusBaseUrl();
-
-    default String getMavenCentralBaseUrl() {
-        return "https://repo1.maven.org/maven2/";
-    }
-
-    boolean createRelativeSymlinks();
-
-    boolean deleteOldEntries();
-
-    int getKeepNumberOfOldEntries();
-
-    Iterable<ArtifactConfiguration> getArtifactConfigurations();
-
-    default Path getWorkingPath() {
-        return Paths.get(".");
-    }
+public enum RepositoryStrategy {
+    NEXUS, MAVEN_CENTRAL,
 }

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.indoqa.nexus.artifact.downloader;
+package com.indoqa.nexus.artifact.downloader.helpers;
 
 public class ArtifactType {
 

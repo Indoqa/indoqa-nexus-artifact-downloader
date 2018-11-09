@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.indoqa.nexus.artifact.downloader.configuration.RepositoryStrategy;
 import org.json.JSONObject;
 
 public class JsonHelper {
@@ -64,5 +65,4 @@ public class JsonHelper {
             .map(e -> new JSONObject((Map) e))
             .collect(Collectors.toList());
     }
-
 }

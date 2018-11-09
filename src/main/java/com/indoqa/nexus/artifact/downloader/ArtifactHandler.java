@@ -16,12 +16,8 @@
  */
 package com.indoqa.nexus.artifact.downloader;
 
-import static org.apache.commons.lang3.StringUtils.substringAfterLast;
-
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -35,43 +31,28 @@ import java.util.stream.Collectors;
 
 import com.indoqa.nexus.artifact.downloader.configuration.ArtifactConfiguration;
 import com.indoqa.nexus.artifact.downloader.configuration.DownloaderConfiguration;
-import com.indoqa.nexus.artifact.downloader.json.JsonDownloadExtractor;
+import com.indoqa.nexus.artifact.downloader.configuration.RepositoryStrategy;
+import com.indoqa.nexus.artifact.downloader.helpers.*;
 import com.indoqa.nexus.artifact.downloader.result.DownloadResult;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.http.HttpHeaders;
-import org.apache.http.client.fluent.Content;
-import org.apache.http.client.fluent.Executor;
-import org.apache.http.client.fluent.Request;
-import org.apache.http.client.fluent.Response;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.entity.ContentType;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class NexusArtifactDownloader {
+public class ArtifactHandler {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(NexusArtifactDownloader.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ArtifactHandler.class);
 
-    private static final String REPOSITORY = "repository";
-    private static final String CONTINUATION_TOKEN = "continuationToken";
-    private static final String MAVEN_GROUP_ID = "maven.groupId";
-    private static final String MAVEN_ARTIFACT_ID = "maven.artifactId";
-
-    private static final String PATH_REST_SEARCH = "service/rest/beta/search";
     public static final String ARCHIVE_PATH = "archive";
 
     private final DownloaderConfiguration configuration;
 
-    private final Executor executor;
+    private List<AbstractDownloader> downloaders;
 
-    public NexusArtifactDownloader(DownloaderConfiguration configuration) {
+    public ArtifactHandler(DownloaderConfiguration configuration) {
         this.configuration = configuration;
-        this.executor = Executor
-            .newInstance()
-            .auth(configuration.getUsername(), configuration.getPassword())
-            .authPreemptive(configuration.getNexusBaseUrl());
+        this.downloaders = new ArrayList<>(2);
+        this.downloaders.add(new NexusDownloader(configuration));
+        this.downloaders.add(new MavenCentralDownloader(configuration));
     }
 
     public DownloadResult download(ArtifactConfiguration artifactConfiguration) throws DownloaderException {
@@ -86,16 +67,10 @@ public class NexusArtifactDownloader {
         }
         DownloadableArtifact downloadableArtifact = first.get();
 
-        Request get = Request.Get(downloadableArtifact.getDownloadUrl());
-
         Path workingDirectory = this.getWorkingDirectory(artifactConfiguration);
         Path artifactPath = this.createArtifactPath(workingDirectory, downloadableArtifact, artifactConfiguration);
         if (!Files.exists(artifactPath)) {
-            try {
-                executeRequest(get).saveContent(artifactPath.toFile());
-            } catch (IOException e) {
-                throw DownloaderException.errorStoringArtifact(artifactPath, e);
-            }
+            saveToFile(artifactConfiguration.getRepositoryStrategy(), downloadableArtifact, artifactPath);
         } else {
             LOGGER.debug("Artifact already exists {}", artifactPath);
         }
@@ -113,6 +88,19 @@ public class NexusArtifactDownloader {
         return () -> "Symlink created " + link + " target: " + artifactPath;
     }
 
+    private void saveToFile(RepositoryStrategy strategy, DownloadableArtifact downloadableArtifact, Path artifactPath) throws DownloaderException {
+        this.getDownloader(strategy).saveArtifactToPath(downloadableArtifact, artifactPath);
+    }
+
+    private AbstractDownloader getDownloader(RepositoryStrategy strategy) {
+        return this.downloaders.stream().filter(downloader -> downloader.handles(strategy)).findFirst().get();
+    }
+
+    private List<DownloadableArtifact> getDownloadableArtifacts(ArtifactConfiguration artifactConfiguration)
+        throws DownloaderException {
+        return this.getDownloader(artifactConfiguration.getRepositoryStrategy()).getDownloadableArtifacts(artifactConfiguration);
+    }
+
     private void deleteEntries(Path artifactParentPath, ArtifactConfiguration artifactConfiguration) {
         String mavenType = artifactConfiguration.getMavenType();
         try {
@@ -120,25 +108,7 @@ public class NexusArtifactDownloader {
             List<Path> collect = Files
                 .list(artifactParentPath)
                 .filter(path -> path.getFileName().toString().endsWith(mavenType))
-                .sorted(new Comparator<Path>() {
-
-                    @Override
-                    public int compare(Path o1, Path o2) {
-                        int compare = this.getLastModified(o2).compareTo(this.getLastModified(o1));
-                        if (compare == 0) {
-                            return o2.getFileName().compareTo(o1.getFileName());
-                        }
-                        return compare;
-                    }
-
-                    private FileTime getLastModified(Path path) {
-                        try {
-                            return Files.getLastModifiedTime(path);
-                        } catch (IOException e) {
-                            return FileTime.fromMillis(currentTimeInMillis);
-                        }
-                    }
-                })
+                .sorted(new PathComparator(currentTimeInMillis))
                 .skip(this.configuration.getKeepNumberOfOldEntries())
                 .collect(Collectors.toList());
 
@@ -230,101 +200,29 @@ public class NexusArtifactDownloader {
         return basePath.toAbsolutePath().normalize();
     }
 
-    private List<DownloadableArtifact> getDownloadableArtifacts(ArtifactConfiguration artifactConfiguration)
-        throws DownloaderException {
-        List<DownloadableArtifact> result = new ArrayList<>();
+    private static class PathComparator implements Comparator<Path> {
 
-        JSONObject jsonObject = this.getJsonObject(buildUri(Optional.empty(), artifactConfiguration));
-        result.addAll(this.extractDownloadableArtifacts(jsonObject, artifactConfiguration));
-        Optional<String> continuationToken = this.getContinuationToken(jsonObject);
+        private final long currentTimeInMillis;
 
-        while (continuationToken.isPresent()) {
-            jsonObject = this.getJsonObject(buildUri(continuationToken, artifactConfiguration));
-            result.addAll(this.extractDownloadableArtifacts(jsonObject, artifactConfiguration));
-            continuationToken = this.getContinuationToken(jsonObject);
+        public PathComparator(long currentTimeInMillis) {
+            this.currentTimeInMillis = currentTimeInMillis;
         }
 
-        return result;
-    }
-
-    private Optional<String> getContinuationToken(JSONObject jsonObject) {
-        return Optional.ofNullable(JsonDownloadExtractor.getContinuationToken(jsonObject));
-    }
-
-    private List<DownloadableArtifact> extractDownloadableArtifacts(JSONObject jsonObject,
-        ArtifactConfiguration artifactConfiguration) {
-        List<DownloadableArtifact> downloadableArtifacts = new ArrayList();
-        ArtifactType requestedArtifactType = ArtifactType.extractFromClassifierExtension(artifactConfiguration.getMavenType());
-        List<JSONObject> items = JsonDownloadExtractor.getItems(jsonObject);
-        for (JSONObject item : items) {
-            String version = JsonDownloadExtractor.getVersion(item);
-            List<JSONObject> assets = JsonDownloadExtractor.getAssets(item);
-            for (JSONObject asset : assets) {
-                String downloadUrl = JsonDownloadExtractor.getDownloadUrl(asset);
-                ArtifactType artifactType = extractArtifactType(version, downloadUrl);
-                if (filterArtifactType(artifactType)) {
-                    continue;
-                }
-                if (!requestedArtifactType.includes(artifactType)) {
-                    continue;
-                }
-                String sha1 = JsonDownloadExtractor.getSha1(asset);
-                downloadableArtifacts.add(DownloadableArtifact.of(version, downloadUrl, sha1));
+        @Override
+        public int compare(Path o1, Path o2) {
+            int compare = this.getLastModified(o2).compareTo(this.getLastModified(o1));
+            if (compare == 0) {
+                return o2.getFileName().compareTo(o1.getFileName());
             }
+            return compare;
         }
-        return downloadableArtifacts;
-    }
 
-    private boolean filterArtifactType(ArtifactType artifactType) {
-        if (StringUtils.containsAny(artifactType.getExtension(), "md5", "sha1")) {
-            return true;
-        }
-        if (StringUtils.containsAny(artifactType.getClassifier(), "javadoc", "sources")) {
-            return true;
-        }
-        return false;
-    }
-
-    private ArtifactType extractArtifactType(String version, String downloadUrl) {
-        String classifierExtension = substringAfterLast(downloadUrl, version);
-        return ArtifactType.extractFromClassifierExtension(classifierExtension);
-    }
-
-    private JSONObject getJsonObject(URI uri) throws DownloaderException {
-        LOGGER.trace("Will use the following uri to search for artifacts '{}'", uri);
-        Request get = Request.Get(uri);
-        get.addHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
-        try {
-            Content content = executeRequest(get).returnContent();
-            if (!ContentType.APPLICATION_JSON.getMimeType().equals(content.getType().getMimeType())) {
-                throw DownloaderException.wrongMimeType(ContentType.APPLICATION_JSON, content.getType());
+        private FileTime getLastModified(Path path) {
+            try {
+                return Files.getLastModifiedTime(path);
+            } catch (IOException e) {
+                return FileTime.fromMillis(currentTimeInMillis);
             }
-            return new JSONObject(content.asString());
-        } catch (IOException e) {
-            throw DownloaderException.errorExecutingRequest(get, e);
-        }
-    }
-
-    private Response executeRequest(Request get) throws DownloaderException {
-        try {
-            return executor.execute(get);
-        } catch (IOException e) {
-            throw DownloaderException.errorExecutingRequest(get, e);
-        }
-    }
-
-    private URI buildUri(Optional<String> continuationToken, ArtifactConfiguration artifactConfiguration) throws DownloaderException {
-        try {
-            URIBuilder uriBuilder = new URIBuilder(this.configuration.getNexusBaseUrl())
-                .setPath(PATH_REST_SEARCH)
-                .addParameter(MAVEN_GROUP_ID, artifactConfiguration.getMavenGroupId())
-                .addParameter(MAVEN_ARTIFACT_ID, artifactConfiguration.getMavenArtifactId())
-                .addParameter(REPOSITORY, artifactConfiguration.getRepository());
-
-            continuationToken.ifPresent(token -> uriBuilder.addParameter(CONTINUATION_TOKEN, token));
-            return uriBuilder.build();
-        } catch (URISyntaxException e) {
-            throw DownloaderException.errorBuildingUri(e);
         }
     }
 }

@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import com.indoqa.nexus.artifact.downloader.json.JsonHelper;
 import org.json.JSONArray;
@@ -30,6 +31,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import netscape.javascript.JSException;
 
 public class FileDownloaderConfiguration implements DownloaderConfiguration {
 
@@ -47,8 +50,11 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
     private boolean verbose;
     private boolean moreVerbose;
 
-    public static DownloaderConfiguration create(String[] args) {
-        if (args.length > 1) {
+    public static final String HELP = "No (valid) configuration file was found working directory (downloader.json)\n"
+        + "No (valid) configuration file path was supplied as first argument indoqa-nexus-downloader.jar [path]";
+
+    public static ConfigurationHolder create(String[] args) {
+        if (args.length >= 1) {
             Path path = Paths.get(args[0]);
             if (Files.exists(path)) {
                 return readConfigurationFile(path);
@@ -58,26 +64,23 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
         if (Files.exists(path)) {
             return readConfigurationFile(path);
         }
-        return null;
+        return ConfigurationHolder.help(HELP);
     }
 
-    private static FileDownloaderConfiguration readConfigurationFile(Path path) {
+    private static ConfigurationHolder readConfigurationFile(Path path) {
         try {
             JSONObject jsonObject = new JSONObject(new String(Files.readAllBytes(path), Charset.forName("UTF-8")));
             FileDownloaderConfiguration result = new FileDownloaderConfiguration();
             extractConfigParameters(jsonObject, result);
             extractArtifactConfigurations(jsonObject, result);
-            return result;
-        } catch (IOException | ConfigurationException e) {
-            LOGGER.error("Failed to parse configuration file '{}': {}", path, e.getMessage());
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.error("Stacktrace: ", e.getCause());
-            }
+            return ConfigurationHolder.config(result);
+        } catch (IOException | JSONException | ConfigurationException e) {
+            return ConfigurationHolder.error("Failed to parse configuration file '" + path + "': " + e.getMessage(), e);
         }
-        return null;
     }
 
-    private static void extractArtifactConfigurations(JSONObject jsonObject, FileDownloaderConfiguration result) {
+    private static void extractArtifactConfigurations(JSONObject jsonObject, FileDownloaderConfiguration result)
+        throws ConfigurationException {
         try {
             JSONArray artifacts = jsonObject.getJSONArray("mavenArtifacts");
 
@@ -90,6 +93,7 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
             }
         } catch (JSONException e) {
             LOGGER.error("Could not extract artifacts configuration from config. {}", e.getMessage());
+            throw ConfigurationException.missingParameter("mavenArtifacts", "config", e);
         }
     }
 
@@ -101,16 +105,26 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
         result.setUsername(getConfigParameter(config, "nexusUsername"));
         result.setPassword(getConfigParameter(config, "nexusPassword"));
         result.setBaseUrl(getConfigParameter(config, "nexusUrl"));
-        result.setCreateRelativeSymlinks(config.getBoolean("createRelativeSymlinks"));
+        result.setCreateRelativeSymlinks(getBooleanConfigParameter("baseConfig", config, "createRelativeSymlinks"));
 
-        result.setVerbose(config.getBoolean("verbose"));
-        result.setMoreVerbose(config.getBoolean("moreVerbose"));
+        result.setVerbose(getBooleanConfigParameter("baseConfig", config, "verbose"));
+        result.setMoreVerbose(getBooleanConfigParameter("baseConfig", config, "moreVerbose"));
 
         JsonHelper.getOptionalString(config, "basePath").ifPresent(value -> result.setBasePath(Paths.get(value)));
 
-        JSONObject oldEntries = config.getJSONObject("oldEntries");
-        result.setCountToKeep(oldEntries.getInt("countToKeep"));
-        result.setDeleteOld(oldEntries.getBoolean("delete"));
+        Optional<JSONObject> oldEntries = JsonHelper.getJsonObject(config,"oldEntries");
+        if (oldEntries.isPresent()) {
+            result.setCountToKeep(getIntegerParameter("oldEntries", oldEntries.get(), "countToKeep"));
+            result.setDeleteOld(getBooleanConfigParameter("oldEntries", oldEntries.get(), "delete"));
+        }
+    }
+
+    private static int getIntegerParameter(String context, JSONObject object, String parameter) throws ConfigurationException {
+        try{
+            return object.getInt(parameter);
+        }catch (JSException e){
+            throw ConfigurationException.missingParameter(parameter, context, e);
+        }
     }
 
     private static String getConfigParameter(JSONObject config, String parameter) throws ConfigurationException {
@@ -121,13 +135,16 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
         }
     }
 
-    private void add(FileArtifactConfiguration fileArtifactConfiguration) {
-        this.artifactConfigurations.add(fileArtifactConfiguration);
+    private static boolean getBooleanConfigParameter(String context, JSONObject config, String parameter) throws ConfigurationException {
+        try {
+            return config.getBoolean(parameter);
+        } catch (JSONException e) {
+            throw ConfigurationException.missingParameter(parameter, context, e);
+        }
     }
 
-    public static void printHelp() {
-        LOGGER.info("No (valid) configuration file was found working directory (downloader.json)");
-        LOGGER.info("No (valid) configuration file path was supplied as first argument indoqa-nexus-downloader.jar [path]");
+    private void add(FileArtifactConfiguration fileArtifactConfiguration) {
+        this.artifactConfigurations.add(fileArtifactConfiguration);
     }
 
     public void setVerbose(boolean verbose) {

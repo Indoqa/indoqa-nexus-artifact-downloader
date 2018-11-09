@@ -32,4 +32,6 @@ public interface ArtifactConfiguration {
 
     Optional<String> getName();
 
+    RepositoryStrategy getRepositoryStrategy();
+
 }

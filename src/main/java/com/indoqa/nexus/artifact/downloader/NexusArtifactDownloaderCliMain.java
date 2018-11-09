@@ -16,10 +16,8 @@
  */
 package com.indoqa.nexus.artifact.downloader;
 
-import com.indoqa.nexus.artifact.downloader.configuration.ArtifactConfiguration;
-import com.indoqa.nexus.artifact.downloader.configuration.CommandlineDownloaderConfiguration;
-import com.indoqa.nexus.artifact.downloader.configuration.DownloaderConfiguration;
-import com.indoqa.nexus.artifact.downloader.configuration.FileDownloaderConfiguration;
+import com.indoqa.nexus.artifact.downloader.configuration.*;
+import com.indoqa.nexus.artifact.downloader.helpers.DownloaderException;
 import com.indoqa.nexus.artifact.downloader.result.DownloadResult;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -33,21 +31,39 @@ public class NexusArtifactDownloaderCliMain {
     private static final Logger LOGGER = LoggerFactory.getLogger(NexusArtifactDownloaderCliMain.class);
 
     public static void main(String[] args) {
-        DownloaderConfiguration configuration = FileDownloaderConfiguration.create(args);
+        ConfigurationHolder holder = SelfUpdaterDownloaderConfiguration.createSelfUpdateConfig(args);
 
-        if (configuration == null) {
-            FileDownloaderConfiguration.printHelp();
-            configuration = CommandlineDownloaderConfiguration.create(args);
+        if (!holder.hasConfiguration()) {
+            if (holder.isErroneous()) {
+                LOGGER.error(holder.getErrorMessage(), holder.getException());
+            }
+            LOGGER.info(holder.getHelpMessage());
+            holder =  FileDownloaderConfiguration.create(args);
         }
 
-        if (configuration == null) {
-            CommandlineDownloaderConfiguration.printHelp();
+        if (!holder.hasConfiguration()) {
+            if (holder.isErroneous()) {
+                LOGGER.error(holder.getErrorMessage(), holder.getException());
+            }
+
+            LOGGER.info(holder.getHelpMessage());
+
+            holder = CommandlineDownloaderConfiguration.create(args);
+        }
+
+        if (!holder.hasConfiguration()) {
+            if (holder.isErroneous()) {
+                LOGGER.error(holder.getErrorMessage(), holder.getException());
+            }
+
+            LOGGER.info(holder.getHelpMessage());
             System.exit(-1);
         }
 
+        DownloaderConfiguration configuration = holder.getDownloaderConfiguration();
         configureLogging(configuration);
 
-        NexusArtifactDownloader downloader = new NexusArtifactDownloader(configuration);
+        ArtifactHandler downloader = new ArtifactHandler(configuration);
         try {
             for (ArtifactConfiguration artifactConfiguration : configuration.getArtifactConfigurations()) {
                 DownloadResult download = downloader.download(artifactConfiguration);

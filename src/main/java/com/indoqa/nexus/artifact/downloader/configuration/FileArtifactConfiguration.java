@@ -16,6 +16,7 @@
  */
 package com.indoqa.nexus.artifact.downloader.configuration;
 
+import java.util.Arrays;
 import java.util.Optional;
 
 import com.indoqa.nexus.artifact.downloader.json.JsonHelper;
@@ -28,7 +29,9 @@ public class FileArtifactConfiguration implements ArtifactConfiguration {
     private String repository;
     private String mavenGroupId;
     private String mavenArtifactId;
+    private Optional<String> version;
     private Optional<String> name;
+    private RepositoryStrategy repositoryStrategy;
 
     public static FileArtifactConfiguration create(JSONObject jsonObject) throws ConfigurationException {
         FileArtifactConfiguration result = new FileArtifactConfiguration();
@@ -38,6 +41,8 @@ public class FileArtifactConfiguration implements ArtifactConfiguration {
         result.setRepository(JsonHelper.getString(jsonObject, "repo", "releases"));
         result.setMavenType(getConfigParameter(jsonObject, "type"));
         result.setName(JsonHelper.getOptionalString(jsonObject, "name"));
+        result.setVersion(JsonHelper.getOptionalString(jsonObject, "version"));
+        result.setRepositoryStrategy(getEnum(jsonObject, "repoStrategy", RepositoryStrategy.NEXUS));
 
         return result;
     }
@@ -47,6 +52,18 @@ public class FileArtifactConfiguration implements ArtifactConfiguration {
             return config.getString(parameter);
         } catch (JSONException e) {
             throw ConfigurationException.missingParameter(parameter, "artifact configuration", e);
+        }
+    }
+
+    private static <T extends Enum> T getEnum(JSONObject config, String parameter, T defaultValue)
+        throws ConfigurationException {
+        String value = JsonHelper.getString(config, parameter, defaultValue.name());
+
+        try{
+            return (T) Enum.valueOf(defaultValue.getClass(), value);
+        }catch(Exception e){
+            throw ConfigurationException.invalidValue(parameter, "artifact configuration", value,
+                Arrays.toString(defaultValue.getDeclaringClass().getEnumConstants()));
         }
     }
 
@@ -77,6 +94,10 @@ public class FileArtifactConfiguration implements ArtifactConfiguration {
         return this.repository;
     }
 
+    public void setRepositoryStrategy(RepositoryStrategy repositoryStrategy) {
+        this.repositoryStrategy = repositoryStrategy;
+    }
+
     public void setMavenType(String mavenType) {
         this.mavenType = mavenType;
     }
@@ -88,7 +109,11 @@ public class FileArtifactConfiguration implements ArtifactConfiguration {
 
     @Override
     public Optional<String> getArtifactVersion() {
-        return Optional.empty();
+        return this.version;
+    }
+
+    public void setVersion(Optional<String> version) {
+        this.version = version;
     }
 
     public void setName(Optional<String> name) {
@@ -98,5 +123,10 @@ public class FileArtifactConfiguration implements ArtifactConfiguration {
     @Override
     public Optional<String> getName() {
         return this.name;
+    }
+
+    @Override
+    public RepositoryStrategy getRepositoryStrategy() {
+        return this.repositoryStrategy;
     }
 }

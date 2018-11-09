@@ -16,6 +16,10 @@
  */
 package com.indoqa.nexus.artifact.downloader.configuration;
 
+import static org.apache.commons.cli.HelpFormatter.*;
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Collections;
 import java.util.Optional;
 
@@ -39,6 +43,7 @@ public class CommandlineDownloaderConfiguration implements DownloaderConfigurati
     private static final String OPTION_VERSION = "v";
     private static final String OPTION_USERNAME = "u";
     private static final String OPTION_PASSWORD = "p";
+    private static final String OPTION_MAVEN_REPOSITORY_STRATEGY = "mvnrs";
 
     private static final String OPTION_VERBOSE = "verbose";
     private static final String DEFAULT_MAVEN_TYPE = "jar";
@@ -47,21 +52,29 @@ public class CommandlineDownloaderConfiguration implements DownloaderConfigurati
 
     private CommandLine commandLine;
 
-    public static DownloaderConfiguration create(String args[]) {
+    public static ConfigurationHolder create(String args[]) {
         try {
             DefaultParser parser = new DefaultParser();
             CommandLine commandLine = parser.parse(getOptions(), args);
 
             CommandlineDownloaderConfiguration configuration = new CommandlineDownloaderConfiguration();
             configuration.setCommandLine(commandLine);
-            return configuration;
+            return ConfigurationHolder.config(configuration);
         } catch (ParseException e) {
-            LOGGER.error("Failed to parse command line: {}", e.getMessage());
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.error("Stacktrace: ", e.getCause());
-            }
+            ConfigurationHolder error = ConfigurationHolder.error("Failed to parse command line: " + e.getMessage(), e);
+
+            String helpMessage = createHelpMessage();
+            error.setHelpMessage(helpMessage);
+            return error;
         }
-        return null;
+    }
+
+    private static String createHelpMessage() {
+        StringWriter writer = new StringWriter();
+        new HelpFormatter().printHelp(new PrintWriter(writer, true),
+            DEFAULT_WIDTH, "indoqa-nexus-downloader", null,
+            getOptions(), DEFAULT_LEFT_PAD, DEFAULT_DESC_PAD, null, false);
+        return writer.toString();
     }
 
     private void setCommandLine(CommandLine commandLine) {
@@ -106,6 +119,9 @@ public class CommandlineDownloaderConfiguration implements DownloaderConfigurati
 
         Option mavenArtifactTypeOption = new Option(OPTION_MAVEN_TYPE, "maven-type", true, "Type of the maven artifact");
         options.addOption(mavenArtifactTypeOption);
+
+        Option repositoryStrategyOption = new Option(OPTION_MAVEN_REPOSITORY_STRATEGY, "maven-repository-strategy",true, "Repository strategy");
+        options.addOption(repositoryStrategyOption);
 
         options.addOption(new Option(OPTION_DELETE, "delete", false, "Remove old artifacts"));
         options.addOption(new Option(OPTION_COUNT, "count", true, "Count of artifacts to keep"));
@@ -171,6 +187,20 @@ public class CommandlineDownloaderConfiguration implements DownloaderConfigurati
     @Override
     public Optional<String> getName() {
         return Optional.empty();
+    }
+
+    @Override
+    public RepositoryStrategy getRepositoryStrategy() {
+        String optionValue = this.commandLine.getOptionValue(OPTION_MAVEN_REPOSITORY_STRATEGY, RepositoryStrategy.NEXUS.name());
+        try{
+            return RepositoryStrategy.valueOf(optionValue);
+        }catch(Exception e) {
+            LOGGER.error("'{}' is no valid repository strategy. Valid are {} ", optionValue, RepositoryStrategy.values());
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.error("Stacktrace: ", e.getCause());
+            }
+        }
+        return RepositoryStrategy.NEXUS;
     }
 
     @Override

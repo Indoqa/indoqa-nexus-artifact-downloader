@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.indoqa.nexus.artifact.downloader;
+package com.indoqa.nexus.artifact.downloader.helpers;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -42,6 +42,11 @@ public class DownloaderException extends Exception {
 
     public Type getType() {
         return type;
+    }
+
+    public static DownloaderException errorCouldNotFindLatestVersion(String mavenGroupId, String mavenArtifactId, String mavenType) {
+        return new DownloaderException(Type.NOT_FOUND,
+            String.format(DEFAULT, "No latest version of artifact found for %s %s %s", mavenGroupId, mavenArtifactId, mavenType));
     }
 
     public static DownloaderException notFound(String mavenGroupId, String mavenArtifactId, String mavenType) {
