@@ -32,8 +32,6 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import netscape.javascript.JSException;
-
 public class FileDownloaderConfiguration implements DownloaderConfiguration {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileDownloaderConfiguration.class);
@@ -122,7 +120,7 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
     private static int getIntegerParameter(String context, JSONObject object, String parameter) throws ConfigurationException {
         try{
             return object.getInt(parameter);
-        }catch (JSException e){
+        }catch (JSONException e){
             throw ConfigurationException.missingParameter(parameter, context, e);
         }
     }
