@@ -107,7 +107,7 @@
             </manifest>
             <manifestEntries>
               <Implementation-Build>${project.version}</Implementation-Build>
-              <delegatedMainClass>com.indoqa.nexus.downloader.client.NexusDownloaderClientMain</delegatedMainClass>
+              <delegatedMainClass>com.indoqa.nexus.downloader.client.NexusDownloaderClient</delegatedMainClass>
             </manifestEntries>
           </archive>
         </configuration>

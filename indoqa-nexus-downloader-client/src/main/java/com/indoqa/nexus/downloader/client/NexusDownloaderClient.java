@@ -33,13 +33,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.Configurator;
-import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class NexusDownloaderClientMain {
+public class NexusDownloaderClient {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(NexusDownloaderClientMain.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(NexusDownloaderClient.class);
 
     private static final String OPTION_VERBOSE = "v";
     private static final String OPTION_HELP = "h";
@@ -109,10 +108,9 @@ public class NexusDownloaderClientMain {
 
     private static void configureLogging(CommandLine commandLine) {
         if (commandLine.hasOption(OPTION_VERBOSE)) {
-            boolean multipleTimes = Arrays.stream(commandLine.getOptions())
-                .map(Option::getOpt)
-                .filter(v -> v.equalsIgnoreCase(OPTION_VERBOSE))
-                .count() > 1;
+            boolean multipleTimes =
+                Arrays.stream(commandLine.getOptions()).map(Option::getOpt).filter(v -> v.equalsIgnoreCase(OPTION_VERBOSE)).count()
+                    > 1;
 
             configureLogging(true, multipleTimes);
         }
@@ -160,7 +158,11 @@ public class NexusDownloaderClientMain {
 
         result.addOption(Option.builder(OPTION_HELP).longOpt("help").desc("Print this help screen").build());
         result.addOption(Option.builder(OPTION_VERBOSE).longOpt("verbose").desc("Print verbose messages").build());
-        result.addOption(Option.builder(OPTION_DNS_NAME_SERVER).longOpt("dns").desc("DNS-Name of the host serving configurations").build());
+        result.addOption(Option
+            .builder(OPTION_DNS_NAME_SERVER)
+            .longOpt("dns")
+            .desc("DNS-Name of the host serving configurations")
+            .build());
         result.addOption(Option.builder(OPTION_HOSTNAME).longOpt("hostname").desc("Hostname of this server").hasArg().build());
 
         return result;
