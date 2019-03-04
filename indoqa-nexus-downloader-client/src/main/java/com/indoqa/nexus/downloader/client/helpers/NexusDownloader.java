@@ -49,15 +49,15 @@ public class NexusDownloader extends AbstractDownloader {
     private static final String MAVEN_GROUP_ID = "maven.groupId";
     private static final String MAVEN_ARTIFACT_ID = "maven.artifactId";
 
-    private static final String PATH_REST_SEARCH = "service/rest/beta/search";
-
     private final DownloaderConfiguration configuration;
+    private final String restSearchPath;
 
     public NexusDownloader(DownloaderConfiguration configuration) {
         super(Executor
             .newInstance()
             .auth(configuration.getUsername(), configuration.getPassword())
             .authPreemptive(configuration.getNexusBaseUrl()));
+        this.restSearchPath = configuration.getNexusPathRestSearch();
         this.configuration = configuration;
     }
 
@@ -102,7 +102,7 @@ public class NexusDownloader extends AbstractDownloader {
     private URI buildUri(Optional<String> continuationToken, ArtifactConfiguration artifactConfiguration) throws DownloaderException {
         try {
             URIBuilder uriBuilder = new URIBuilder(this.configuration.getNexusBaseUrl())
-                .setPath(PATH_REST_SEARCH)
+                .setPath(restSearchPath)
                 .addParameter(MAVEN_GROUP_ID, artifactConfiguration.getMavenGroupId())
                 .addParameter(MAVEN_ARTIFACT_ID, artifactConfiguration.getMavenArtifactId())
                 .addParameter(REPOSITORY, artifactConfiguration.getRepository());

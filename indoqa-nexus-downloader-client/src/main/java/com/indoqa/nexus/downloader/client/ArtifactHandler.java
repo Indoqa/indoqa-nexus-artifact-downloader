@@ -96,9 +96,11 @@ public class ArtifactHandler {
         return this.downloaders.stream().filter(downloader -> downloader.handles(strategy)).findFirst().get();
     }
 
-    private List<DownloadableArtifact> getDownloadableArtifacts(ArtifactConfiguration artifactConfiguration)
+    private List<DownloadableArtifact> getDownloadableArtifacts(ArtifactConfiguration artifact)
         throws DownloaderException {
-        return this.getDownloader(artifactConfiguration.getRepositoryStrategy()).getDownloadableArtifacts(artifactConfiguration);
+        LOGGER.debug("Will download {}:{}:{} from {}", artifact.getMavenGroupId(), artifact.getMavenArtifactId(),
+            artifact.getArtifactVersion(), artifact.getRepository());
+        return this.getDownloader(artifact.getRepositoryStrategy()).getDownloadableArtifacts(artifact);
     }
 
     private void deleteEntries(Path artifactParentPath, ArtifactConfiguration artifactConfiguration) {

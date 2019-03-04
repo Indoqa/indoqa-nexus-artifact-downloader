@@ -35,6 +35,10 @@ public interface DownloaderConfiguration {
         return "https://repo1.maven.org/maven2/";
     }
 
+    default String getNexusPathRestSearch() {
+        return "service/rest/beta/search";
+    }
+
     boolean createRelativeSymlinks();
 
     boolean deleteOldEntries();

@@ -49,33 +49,33 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
     private boolean deleteOld;
     private boolean verbose;
     private boolean moreVerbose;
-
-    public static final String HELP = "No (valid) configuration file was found working directory (com.indoqa.nexus.downloader.client.json)\n"
-        + "No (valid) configuration file path was supplied as first argument indoqa-nexus-com.indoqa.nexus.downloader.jar [path]";
+    private String nexusPathRestSearch;
 
     public static ConfigurationHolder create(String[] args) {
-        if (args.length >= 1) {
-            Path path = Paths.get(args[0]);
-            if (Files.exists(path)) {
-                return readConfigurationFile(path);
-            }
-        }
-        Path path = Paths.get("./com.indoqa.nexus.downloader.client.json");
+        Path path = Paths.get(args[0]);
         if (Files.exists(path)) {
-            return readConfigurationFile(path);
+            return readConfiguration(path);
         }
-        return ConfigurationHolder.help(HELP);
+        return ConfigurationHolder.help("No configuration file found '" + path.toAbsolutePath() + "'");
     }
 
-    private static ConfigurationHolder readConfigurationFile(Path path) {
+    protected static ConfigurationHolder readConfiguration(Path path) {
+        try{
+            return readConfiguration(Files.readAllBytes(path));
+        } catch (IOException | JSONException e) {
+            return ConfigurationHolder.error("Failed to parse configuration file '" + path + "': " + e.getMessage(), e);
+        }
+    }
+
+    protected static ConfigurationHolder readConfiguration(byte[] bytes) {
         try {
-            JSONObject jsonObject = new JSONObject(new String(Files.readAllBytes(path), Charset.forName("UTF-8")));
+            JSONObject jsonObject = new JSONObject(new String(bytes, Charset.forName("UTF-8")));
             FileDownloaderConfiguration result = new FileDownloaderConfiguration();
             extractConfigParameters(jsonObject, result);
             extractArtifactConfigurations(jsonObject, result);
             return ConfigurationHolder.config(result);
-        } catch (IOException | JSONException | ConfigurationException e) {
-            return ConfigurationHolder.error("Failed to parse configuration file '" + path + "': " + e.getMessage(), e);
+        } catch (JSONException | ConfigurationException e) {
+            return ConfigurationHolder.error("Failed to parse configuration file: " + e.getMessage(), e);
         }
     }
 
@@ -114,6 +114,7 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
         result.setMoreVerbose(getBooleanConfigParameter(BASE_CONFIG, config, "moreVerbose"));
 
         JsonHelper.getOptionalString(config, "basePath").ifPresent(value -> result.setBasePath(Paths.get(value)));
+        JsonHelper.getOptionalString(config, "nexusPathRestSearch").ifPresent(result::setNexusPathRestSearch);
 
         Optional<JSONObject> oldEntries = JsonHelper.getJsonObject(config, OLD_ENTRIES);
         if (oldEntries.isPresent()) {
@@ -123,9 +124,9 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
     }
 
     private static int getIntegerParameter(String context, JSONObject object, String parameter) throws ConfigurationException {
-        try{
+        try {
             return object.getInt(parameter);
-        }catch (JSONException e){
+        } catch (JSONException e) {
             throw ConfigurationException.missingParameter(parameter, context, e);
         }
     }
@@ -138,7 +139,8 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
         }
     }
 
-    private static boolean getBooleanConfigParameter(String context, JSONObject config, String parameter) throws ConfigurationException {
+    private static boolean getBooleanConfigParameter(String context, JSONObject config, String parameter)
+        throws ConfigurationException {
         try {
             return config.getBoolean(parameter);
         } catch (JSONException e) {
@@ -237,5 +239,17 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
             return DownloaderConfiguration.super.getWorkingPath();
         }
         return basePath;
+    }
+
+    public void setNexusPathRestSearch(String nexusPathRestSearch) {
+        this.nexusPathRestSearch = nexusPathRestSearch;
+    }
+
+    @Override
+    public String getNexusPathRestSearch() {
+        if (this.nexusPathRestSearch == null) {
+            return DownloaderConfiguration.super.getNexusPathRestSearch();
+        }
+        return nexusPathRestSearch;
     }
 }

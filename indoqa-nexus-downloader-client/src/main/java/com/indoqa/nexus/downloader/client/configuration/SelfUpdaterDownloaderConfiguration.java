@@ -24,11 +24,6 @@ public class SelfUpdaterDownloaderConfiguration implements DownloaderConfigurati
     private static final String SELFUPDATE_COMMAND = "selfupdate";
 
     public static ConfigurationHolder createSelfUpdateConfig(String[] args) {
-        if (args == null || args.length > 1 || args.length == 0) {
-            return ConfigurationHolder.help(
-                "Supply " + SELFUPDATE_COMMAND + " as first argument to update indoqa-nexus-com.indoqa.nexus.downloader.jar");
-        }
-
         String command = args[0].trim();
         if (!command.equalsIgnoreCase(SELFUPDATE_COMMAND)) {
             return ConfigurationHolder.error("No " + SELFUPDATE_COMMAND + " command supplied.", null);
@@ -44,7 +39,7 @@ public class SelfUpdaterDownloaderConfiguration implements DownloaderConfigurati
 
     @Override
     public String getMavenArtifactId() {
-        return "indoqa-nexus-artifact-com.indoqa.nexus.downloader";
+        return "indoqa-nexus-downloader-client";
     }
 
     @Override
