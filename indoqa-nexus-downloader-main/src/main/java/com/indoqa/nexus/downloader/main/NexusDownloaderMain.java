@@ -16,14 +16,16 @@
  */
 package com.indoqa.nexus.downloader.main;
 
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
 import com.indoqa.boot.application.AbstractIndoqaBootApplication;
 import com.indoqa.boot.application.AbstractStartupLifecycle;
+import com.indoqa.boot.resources.error.RestResourceErrorMapperRegistrationUtils;
 import com.indoqa.nexus.downloader.main.config.Config;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 public class NexusDownloaderMain extends AbstractIndoqaBootApplication {
 
-    private static final String APPLICATION_NAME = "NexusDownloaderMain";
+    private static final String APPLICATION_NAME = "Nexus-Downloader-Main";
 
     public static void main(String[] args) {
         NexusDownloaderMain nexusDownloaderMain = new NexusDownloaderMain();
@@ -36,6 +38,13 @@ public class NexusDownloaderMain extends AbstractIndoqaBootApplication {
     }
 
     private static class NexusDownloaderMainStartupLifecycle extends AbstractStartupLifecycle {
+
+        @Override
+        public void didInitializeSpring(AnnotationConfigApplicationContext context) {
+            RestResourceErrorMapperRegistrationUtils.registerRestResourceErrorMapper(context);
+
+            super.didInitializeSpring(context);
+        }
 
         @Override
         public void willRefreshSpringContext(AnnotationConfigApplicationContext context) {
