@@ -99,7 +99,14 @@ public class FileConfigurationService implements ConfigurationService {
     }
 
     private Path getConfigurationPath(ConfigurationIdentifier identifier) {
-        return this.getPath(identifier.getRepo(), identifier.getHost()).resolve(normalize(identifier.getVariant()) + ".json");
+        return this.getPath(identifier.getRepo(), identifier.getHost()).resolve(resolveJson(normalize(identifier.getVariant())));
+    }
+
+    private String resolveJson(String variant) {
+        if (!variant.contains(".json")) {
+            return variant + ".json";
+        }
+        return variant;
     }
 
     private Path getPath(String project) {

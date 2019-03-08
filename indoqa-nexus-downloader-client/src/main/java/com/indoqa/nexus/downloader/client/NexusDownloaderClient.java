@@ -162,6 +162,7 @@ public class NexusDownloaderClient {
             .builder(OPTION_DNS_NAME_SERVER)
             .longOpt("dns")
             .desc("DNS-Name of the host serving configurations")
+            .hasArg()
             .build());
         result.addOption(Option.builder(OPTION_HOSTNAME).longOpt("hostname").desc("Hostname of this server").hasArg().build());
 

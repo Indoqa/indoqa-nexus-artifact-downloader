@@ -30,8 +30,9 @@ import org.slf4j.LoggerFactory;
 public class HttpDownloaderConfiguration extends FileDownloaderConfiguration {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpDownloaderConfiguration.class);
+    private static final String DISABLE_SSL = "disable-ssl";
 
-    public static final String DEFAULT_JSON_FILE = "default.json";
+    private static final String DEFAULT_JSON_FILE = "default.json";
 
     public static final String HEADER_IDQ_NEXUS_DL_PROJECT = "IDQ-NEXUS-DL-PROJECT";
     public static final String HEADER_IDQ_NEXUS_DL_VARIANT = "IDQ-NEXUS-DL-VARIANT";
@@ -74,7 +75,7 @@ public class HttpDownloaderConfiguration extends FileDownloaderConfiguration {
 
     private static byte[] downloadConfiguration(Executor executor, String project, Optional<String> variant,
         String downloaderConfigHost, Optional<String> hostname) throws IOException {
-        Request get = Request.Get("https://" + downloaderConfigHost);
+        Request get = Request.Get(createUrl(downloaderConfigHost));
         get.addHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
         get.addHeader(HEADER_IDQ_NEXUS_DL_PROJECT, project);
         variant.ifPresent(v -> get.addHeader(HEADER_IDQ_NEXUS_DL_VARIANT, v));
@@ -89,5 +90,12 @@ public class HttpDownloaderConfiguration extends FileDownloaderConfiguration {
 
         Response response = executor.execute(get);
         return response.returnContent().asBytes();
+    }
+
+    private static String createUrl(String downloaderConfigHost) {
+        if (Boolean.parseBoolean(System.getProperty(DISABLE_SSL, Boolean.FALSE.toString()))) {
+            return "http://" + downloaderConfigHost + "/configuration";
+        }
+        return "https://" + downloaderConfigHost + "/configuration";
     }
 }
