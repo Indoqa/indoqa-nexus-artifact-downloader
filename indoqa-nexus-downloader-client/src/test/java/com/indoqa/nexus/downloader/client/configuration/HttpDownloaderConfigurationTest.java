@@ -78,7 +78,7 @@ public class HttpDownloaderConfigurationTest {
 
         HttpUriRequest value = captor.getValue();
         assertNotNull(value);
-        assertEquals("https://downloader.example.com", value.getURI().toString());
+        assertEquals("https://downloader.example.com/configuration", value.getURI().toString());
         assertEquals("12", getHeaderValue(value, HEADER_IDQ_NEXUS_DL_PROJECT));
         assertEquals(DEFAULT_JSON_FILE, getHeaderValue(value, HEADER_IDQ_NEXUS_DL_VARIANT));
 
@@ -91,7 +91,7 @@ public class HttpDownloaderConfigurationTest {
 
         HttpUriRequest value = captor.getValue();
         assertNotNull(value);
-        assertEquals(new URL("https://downloader-config.indoqa.com").toURI(), value.getURI());
+        assertEquals(new URL("https://downloader-config.indoqa.com/configuration").toURI(), value.getURI());
         assertEquals("12", getHeaderValue(value, HEADER_IDQ_NEXUS_DL_PROJECT));
         assertEquals("single-only.json", getHeaderValue(value, HEADER_IDQ_NEXUS_DL_VARIANT));
 
@@ -104,7 +104,7 @@ public class HttpDownloaderConfigurationTest {
 
         HttpUriRequest value = captor.getValue();
         assertNotNull(value);
-        assertEquals(new URL("https://downloader-config.indoqa.com").toURI(), value.getURI());
+        assertEquals(new URL("https://downloader-config.indoqa.com/configuration").toURI(), value.getURI());
         assertEquals("12", getHeaderValue(value, HEADER_IDQ_NEXUS_DL_PROJECT));
         assertEquals(DEFAULT_JSON_FILE, getHeaderValue(value, HEADER_IDQ_NEXUS_DL_VARIANT));
 

@@ -146,10 +146,7 @@ public class NexusDownloader extends AbstractDownloader {
         if (StringUtils.containsAny(artifactType.getExtension(), "md5", "sha1")) {
             return true;
         }
-        if (StringUtils.containsAny(artifactType.getClassifier(), "javadoc", "sources")) {
-            return true;
-        }
-        return false;
+        return StringUtils.containsAny(artifactType.getClassifier(), "javadoc", "sources");
     }
 
     private ArtifactType extractArtifactType(String version, String downloadUrl) {

@@ -22,6 +22,10 @@ import org.json.JSONObject;
 
 public final class JsonDownloadExtractor {
 
+    private JsonDownloadExtractor() {
+        //hide utility class constructor
+    }
+
     public static List<JSONObject> getItems(JSONObject jsonObject) {
         return JsonHelper.getJsonArrayAsList(jsonObject, "items");
     }

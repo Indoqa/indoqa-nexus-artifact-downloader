@@ -63,7 +63,7 @@ public class FileArtifactConfiguration implements ArtifactConfiguration {
             return (T) Enum.valueOf(defaultValue.getClass(), value);
         }catch(Exception e){
             throw ConfigurationException.invalidValue(parameter, "artifact configuration", value,
-                Arrays.toString(defaultValue.getDeclaringClass().getEnumConstants()));
+                Arrays.toString(defaultValue.getDeclaringClass().getEnumConstants()), e);
         }
     }
 

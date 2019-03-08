@@ -37,8 +37,8 @@ public final class ConfigurationException extends Exception {
         return new ConfigurationException(String.format(DEFAULT, "Parameter '%s' is missing in '%s'", parameter, context), e);
     }
 
-    public static ConfigurationException invalidValue(String parameter, String context, String value, String validValues) {
+    public static ConfigurationException invalidValue(String parameter, String context, String value, String validValues, Exception e) {
         return new ConfigurationException(String.format(DEFAULT, "Parameter '%s' value '%s' is invalid in '%s'. "
-            + "Valid options are '%s'", parameter, value, context, validValues));
+            + "Valid options are '%s'", parameter, value, context, validValues), e);
     }
 }

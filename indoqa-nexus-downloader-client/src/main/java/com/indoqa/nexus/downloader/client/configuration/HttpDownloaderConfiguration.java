@@ -32,7 +32,7 @@ public class HttpDownloaderConfiguration extends FileDownloaderConfiguration {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpDownloaderConfiguration.class);
     private static final String DISABLE_SSL = "disable-ssl";
 
-    private static final String DEFAULT_JSON_FILE = "default.json";
+    public static final String DEFAULT_JSON_FILE = "default.json";
 
     public static final String HEADER_IDQ_NEXUS_DL_PROJECT = "IDQ-NEXUS-DL-PROJECT";
     public static final String HEADER_IDQ_NEXUS_DL_VARIANT = "IDQ-NEXUS-DL-VARIANT";

@@ -26,6 +26,10 @@ import org.json.JSONObject;
 
 public final class JsonHelper {
 
+    private JsonHelper() {
+        //hide utility class constructor
+    }
+
     public static Optional<JSONObject> getJsonObject(JSONObject jsonObject, String key) {
         if (!jsonObject.has(key) || jsonObject.isNull(key)) {
             return Optional.empty();
