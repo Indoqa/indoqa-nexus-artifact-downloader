@@ -29,9 +29,6 @@ import com.indoqa.nexus.downloader.client.helpers.DownloaderException;
 import com.indoqa.nexus.downloader.client.result.DownloadResult;
 import org.apache.commons.cli.*;
 import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +61,31 @@ public class NexusDownloaderClient {
 
         configureLogging(commandLine);
 
+        DownloaderConfiguration configuration = getDownloaderConfiguration(commandLine);
+        configureLogging(configuration);
+        // commandline overwrites configuration logging
+        configureLogging(commandLine);
+
+        downloadArtifacts(configuration);
+    }
+
+    private static void downloadArtifacts(DownloaderConfiguration configuration) {
+        ArtifactHandler downloader = new ArtifactHandler(configuration);
+        try {
+            for (ArtifactConfiguration artifactConfiguration : configuration.getArtifactConfigurations()) {
+                DownloadResult download = downloader.download(artifactConfiguration);
+                LOGGER.info(download.getMessage());
+            }
+        } catch (DownloaderException e) {
+            LOGGER.error("Error type: {}\n\t {}", e.getType(), e.getMessage());
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.error("Stacktrace: ", e.getCause());
+            }
+            System.exit(-1);
+        }
+    }
+
+    private static DownloaderConfiguration getDownloaderConfiguration(CommandLine commandLine) {
         ConfigurationHolder holder = SelfUpdaterDownloaderConfiguration.createSelfUpdateConfig(commandLine.getArgs());
 
         if (!holder.hasConfiguration()) {
@@ -82,28 +104,13 @@ public class NexusDownloaderClient {
                 LOGGER.error(holder.getErrorMessage(), holder.getException());
             }
 
-            LOGGER.info(holder.getHelpMessage());
-            System.exit(-1);
-        }
-
-        DownloaderConfiguration configuration = holder.getDownloaderConfiguration();
-        configureLogging(configuration);
-        // commandline overwrites configuration logging
-        configureLogging(commandLine);
-
-        ArtifactHandler downloader = new ArtifactHandler(configuration);
-        try {
-            for (ArtifactConfiguration artifactConfiguration : configuration.getArtifactConfigurations()) {
-                DownloadResult download = downloader.download(artifactConfiguration);
-                LOGGER.info(download.getMessage());
-            }
-        } catch (DownloaderException e) {
-            LOGGER.error("Error type: {}\n\t {}", e.getType(), e.getMessage());
-            if (LOGGER.isDebugEnabled()) {
-                LOGGER.error("Stacktrace: ", e.getCause());
+            if (holder.getHelpMessage() != null) {
+                LOGGER.info(holder.getHelpMessage());
             }
             System.exit(-1);
         }
+
+        return holder.getDownloaderConfiguration();
     }
 
     private static void configureLogging(CommandLine commandLine) {
@@ -120,11 +127,6 @@ public class NexusDownloaderClient {
         if (!verbose) {
             return;
         }
-
-        final LoggerContext context = (LoggerContext) LogManager.getContext(false);
-        final Configuration loggerConfig = context.getConfiguration();
-
-        loggerConfig.getRootLogger().getAppenders().put("Console", loggerConfig.getAppender("ConsoleVerbose"));
 
         Level level = Level.DEBUG;
         if (moreVerbose) {
@@ -145,7 +147,7 @@ public class NexusDownloaderClient {
             DEFAULT_WIDTH,
             "indoqa-nexus-downloader [SELFUPDATE | UUID | CONFIG] [VARIANT]",
             null,
-            getOptions(),
+            options,
             DEFAULT_LEFT_PAD,
             DEFAULT_DESC_PAD,
             null,

@@ -34,6 +34,7 @@
   <modules>
     <module>indoqa-nexus-downloader-main</module>
     <module>indoqa-nexus-downloader-client</module>
+    <module>indoqa-nexus-downloader-integration-tests</module>
   </modules>
 
   <properties>
@@ -136,6 +137,18 @@
         <groupId>org.mockito</groupId>
         <artifactId>mockito-core</artifactId>
         <version>2.23.0</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.indoqa</groupId>
+        <artifactId>system-test-tools</artifactId>
+        <version>1.0.0</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.github.stefanbirkner</groupId>
+        <artifactId>system-rules</artifactId>
+        <version>1.19.0</version>
         <scope>test</scope>
       </dependency>
     </dependencies>

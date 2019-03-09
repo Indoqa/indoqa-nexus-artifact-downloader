@@ -1,0 +1,25 @@
+{
+  "baseConfig": {
+    "nexusUsername": "",
+    "nexusPassword": "",
+    "nexusUrl": "example.com",
+    "createRelativeSymlinks": true,
+    "verbose": true,
+    "moreVerbose": false,
+    "oldEntries": {
+      "delete": true,
+      "countToKeep": 3
+    },
+    "basePath": "./target/client-downloads"
+  },
+  "mavenArtifacts": [
+    {
+      "name": "artifact",
+      "groupId": "org.apache.maven",
+      "artifactId": "maven-artifact",
+      "version": "3.6.0",
+      "type": "pom",
+      "repoStrategy": "MAVEN_CENTRAL"
+    }
+  ]
+}
