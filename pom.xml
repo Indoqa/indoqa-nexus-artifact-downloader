@@ -26,7 +26,7 @@
   </parent>
 
   <artifactId>indoqa-nexus-downloader</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.2.0</version>
 
   <name>Indoqa Nexus Downloader</name>
   <description>Downloader for Nexus Artifacts.</description>
@@ -158,6 +158,6 @@
     <connection>scm:git:git@github.com:Indoqa/indoqa-nexus-artifact-downloader.git</connection>
     <developerConnection>scm:git:git@github.com:Indoqa/indoqa-nexus-artifact-downloader.git</developerConnection>
     <url>https://github.com/Indoqa/indoqa-nexus-artifact-downloader</url>
-    <tag>HEAD</tag>
+    <tag>indoqa-nexus-downloader-0.2.0</tag>
   </scm>
 </project>
