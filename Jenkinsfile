@@ -75,6 +75,20 @@ pipeline {
   }
 
   post {
+    success {
+      sh '''NAME=${JOB_NAME%/*}
+            NAME=${NAME#*/}
+          for _host in `ls nexus-downloader-configurations`;
+          do
+           for _config in `ls nexus-downloader-configurations/$_host`
+           do
+             echo "Will upload $_host $_config"
+             curl -H 'Accept: application/json' -X PUT --data-binary "@nexus-downloader-configurations/$_host/$_config" \
+              "https://downloader-config.indoqa.com/configurations/${NAME}/$_host/$_config"
+           done
+          done'''
+    }
+
     changed {
       echo "Changed to ${currentBuild.result}"
       script {
