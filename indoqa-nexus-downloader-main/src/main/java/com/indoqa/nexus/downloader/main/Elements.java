@@ -17,12 +17,13 @@
 package com.indoqa.nexus.downloader.main;
 
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
-public class Elements {
+public class Elements implements Iterable<String> {
 
-    private int totalCount;
     private int start;
+    private int totalCount;
     private List<String> values;
 
     public static Elements create(List<String> values, int start, int count) {
@@ -49,6 +50,11 @@ public class Elements {
 
     public List<String> getValues() {
         return this.values;
+    }
+
+    @Override
+    public Iterator<String> iterator() {
+        return this.values.iterator();
     }
 
     public void setStart(int start) {

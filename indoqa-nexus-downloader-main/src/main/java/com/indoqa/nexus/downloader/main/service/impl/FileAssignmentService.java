@@ -19,7 +19,9 @@ package com.indoqa.nexus.downloader.main.service.impl;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,6 +67,18 @@ public class FileAssignmentService implements AssignmentService {
     @Override
     public Elements getAssignments(int start, int count) {
         return FileHelper.getChildren(this.assignmentsPath, Files::isRegularFile, start, count);
+    }
+
+    @Override
+    public Elements getOverview(int start, int count) {
+        Elements assignments = this.getAssignments(start, count);
+
+        List<String> values = assignments.getValues()
+            .stream()
+            .map(id -> this.getAssignment(id).map(a -> id + " -> " + a.getRepo() + " / " + a.getHost()).orElse(id))
+            .collect(Collectors.toList());
+
+        return Elements.create(values, start, assignments.getTotalCount());
     }
 
     @Override

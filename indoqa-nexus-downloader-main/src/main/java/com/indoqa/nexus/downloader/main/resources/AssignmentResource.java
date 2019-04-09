@@ -43,6 +43,8 @@ public class AssignmentResource extends AbstractJsonResourcesBase {
         this.get("/assignments/:" + PARAM_PROJECT, (req, res) -> this.getAssignement(req));
         this.put("/assignments/:" + PARAM_PROJECT, (req, res) -> this.putAssignement(req, res));
         this.delete("/assignments/:" + PARAM_PROJECT, (req, res) -> this.deleteAssignment(req, res));
+
+        this.get("/assignment-overview", (req, res) -> this.getAssignmentOverview(req));
     }
 
     private String deleteAssignment(Request req, Response res) {
@@ -64,6 +66,13 @@ public class AssignmentResource extends AbstractJsonResourcesBase {
         int count = QueryParameterHelper.getCount(req);
 
         return this.assignmentService.getAssignments(start, count);
+    }
+
+    private Elements getAssignmentOverview(Request req) {
+        int start = QueryParameterHelper.getStart(req);
+        int count = QueryParameterHelper.getCount(req);
+
+        return this.assignmentService.getOverview(start, count);
     }
 
     private String putAssignement(Request req, Response res) {

@@ -31,6 +31,8 @@ public interface AssignmentService {
 
     Elements getAssignments(int start, int count);
 
+    Elements getOverview(int start, int count);
+
     void saveAssignment(String project, Assignment assignment);
 
 }
