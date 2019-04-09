@@ -1,0 +1,23 @@
+{
+  baseConfig: {
+    nexusUsername: "deployment",
+    nexusPassword: "z6j8n4y7o6",
+    nexusUrl: "https://nexus.dev.indoqa.com",
+    createRelativeSymlinks: false,
+    verbose: true,
+    moreVerbose: false,
+    oldEntries: {
+      delete: true,
+      countToKeep: 3,
+    }
+  },
+  mavenArtifacts: [
+    {
+      groupId: "com.indoqa",
+      artifactId: "indoqa-nexus-downloader-main",
+      type: "runnable.jar",
+      repo: "snapshots"
+    }
+  ]
+}
+
