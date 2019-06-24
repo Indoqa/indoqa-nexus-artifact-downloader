@@ -9,7 +9,8 @@
     oldEntries: {
       delete: true,
       countToKeep: 3,
-    }
+    },
+    nexusPathRestSearch: "service/rest/v1/search"
   },
   mavenArtifacts: [
     {
