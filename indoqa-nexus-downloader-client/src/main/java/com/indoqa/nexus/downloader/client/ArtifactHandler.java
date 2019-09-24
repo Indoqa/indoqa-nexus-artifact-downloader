@@ -16,8 +16,10 @@
  */
 package com.indoqa.nexus.downloader.client;
 
+import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -29,14 +31,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.apache.commons.codec.digest.DigestUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.indoqa.nexus.downloader.client.configuration.ArtifactConfiguration;
 import com.indoqa.nexus.downloader.client.configuration.DownloaderConfiguration;
 import com.indoqa.nexus.downloader.client.configuration.RepositoryStrategy;
 import com.indoqa.nexus.downloader.client.helpers.*;
 import com.indoqa.nexus.downloader.client.result.DownloadResult;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class ArtifactHandler {
 
@@ -56,7 +59,7 @@ public class ArtifactHandler {
     }
 
     public DownloadResult download(ArtifactConfiguration artifactConfiguration) throws DownloaderException {
-        List<DownloadableArtifact> downloadableArtifacts = getDownloadableArtifacts(artifactConfiguration);
+        List<DownloadableArtifact> downloadableArtifacts = this.getDownloadableArtifacts(artifactConfiguration);
         Optional<DownloadableArtifact> first = downloadableArtifacts.stream().max(DownloadableArtifact::compareTo);
 
         if (!first.isPresent()) {
@@ -70,7 +73,7 @@ public class ArtifactHandler {
         Path workingDirectory = this.getWorkingDirectory(artifactConfiguration);
         Path artifactPath = this.createArtifactPath(workingDirectory, downloadableArtifact, artifactConfiguration);
         if (!Files.exists(artifactPath)) {
-            saveToFile(artifactConfiguration.getRepositoryStrategy(), downloadableArtifact, artifactPath);
+            this.saveToFile(artifactConfiguration.getRepositoryStrategy(), downloadableArtifact, artifactPath);
         } else {
             LOGGER.debug("Artifact already exists {}", artifactPath);
         }
@@ -84,23 +87,72 @@ public class ArtifactHandler {
             this.deleteEntries(artifactPath.getParent(), artifactConfiguration);
         }
 
-        Path link = createLink(workingDirectory, artifactPath, artifactConfiguration);
+        Path link = this.createLink(workingDirectory, artifactPath, artifactConfiguration);
         return () -> "Symlink created " + link + " target: " + artifactPath;
     }
 
-    private void saveToFile(RepositoryStrategy strategy, DownloadableArtifact downloadableArtifact, Path artifactPath) throws DownloaderException {
-        this.getDownloader(strategy).saveArtifactToPath(downloadableArtifact, artifactPath);
+    private Path createArtifactPath(Path working, DownloadableArtifact downloadableArtifact,
+            ArtifactConfiguration artifactConfiguration) throws DownloaderException {
+        Path repositoryPath;
+
+        if (this.configuration.createRelativeSymlinks()) {
+            Path basePath = this.configuration.getWorkingPath();
+            if (artifactConfiguration.getName().isPresent()) {
+                basePath = basePath.resolve(artifactConfiguration.getName().get());
+            }
+            repositoryPath = basePath.resolve(ARCHIVE_PATH).resolve(artifactConfiguration.getRepository());
+        } else {
+            repositoryPath = working.resolve(ARCHIVE_PATH).resolve(artifactConfiguration.getRepository());
+        }
+
+        try {
+            Files.createDirectories(repositoryPath);
+            return repositoryPath.resolve(downloadableArtifact.getArtifactName());
+        } catch (IOException e) {
+            throw DownloaderException.errorCreatingArtifactPath(repositoryPath, e);
+        }
     }
 
-    private AbstractDownloader getDownloader(RepositoryStrategy strategy) {
-        return this.downloaders.stream().filter(downloader -> downloader.handles(strategy)).findFirst().get();
+    private Path createLink(Path workingDirectory, Path artifactPath, ArtifactConfiguration artifactConfiguration)
+            throws DownloaderException {
+        String name = this.createName(artifactConfiguration.getMavenArtifactId(), artifactConfiguration.getMavenType());
+        Path link = workingDirectory.resolve(name).toAbsolutePath();
+
+        try {
+            if (Files.exists(link, LinkOption.NOFOLLOW_LINKS)) {
+                Files.delete(link);
+            }
+
+            if (this.configuration.createRelativeSymlinks()) {
+                if (artifactConfiguration.getName().isPresent()) {
+                    int index = this.findPathIndex(artifactPath, artifactConfiguration.getName().get());
+                    Files.createSymbolicLink(link, Paths.get(".").resolve(artifactPath.subpath(index, artifactPath.getNameCount())));
+                } else {
+                    Files.createSymbolicLink(link, artifactPath);
+                }
+            } else {
+                Files.createSymbolicLink(link, artifactPath.toAbsolutePath());
+            }
+
+            return link;
+        } catch (IOException e) {
+            throw DownloaderException.errorCreatingLink(link, artifactPath, e);
+        }
     }
 
-    private List<DownloadableArtifact> getDownloadableArtifacts(ArtifactConfiguration artifact)
-        throws DownloaderException {
-        LOGGER.debug("Will download {}:{}:{} from {}", artifact.getMavenGroupId(), artifact.getMavenArtifactId(),
-            artifact.getArtifactVersion(), artifact.getRepository());
-        return this.getDownloader(artifact.getRepositoryStrategy()).getDownloadableArtifacts(artifact);
+    private String createName(String mavenArtifactId, String mavenType) {
+        if (mavenType.contains(".")) {
+            return mavenArtifactId + "-" + mavenType;
+        }
+        return mavenArtifactId + "." + mavenType;
+    }
+
+    private String createSha1(Path artifactPath) throws DownloaderException {
+        try (InputStream inputStream = new BufferedInputStream(new FileInputStream(artifactPath.toFile()))) {
+            return DigestUtils.sha1Hex(inputStream);
+        } catch (IOException e) {
+            throw DownloaderException.errorCalculatingSha1(artifactPath, e);
+        }
     }
 
     private void deleteEntries(Path artifactParentPath, ArtifactConfiguration artifactConfiguration) {
@@ -125,30 +177,6 @@ public class ArtifactHandler {
         }
     }
 
-    private Path createLink(Path workingDirectory, Path artifactPath, ArtifactConfiguration artifactConfiguration)
-        throws DownloaderException {
-        String name = createName(artifactConfiguration.getMavenArtifactId(), artifactConfiguration.getMavenType());
-        Path link = workingDirectory.resolve(name).toAbsolutePath();
-        try {
-            if (Files.exists(link, LinkOption.NOFOLLOW_LINKS)) {
-                Files.delete(link);
-            }
-            if (this.configuration.createRelativeSymlinks()) {
-                if (artifactConfiguration.getName().isPresent()) {
-                    int index = this.findPathIndex(artifactPath, artifactConfiguration.getName().get());
-                    Files.createSymbolicLink(link, Paths.get(".").resolve(artifactPath.subpath(index, artifactPath.getNameCount())));
-                } else {
-                    Files.createSymbolicLink(link, artifactPath);
-                }
-            } else {
-                Files.createSymbolicLink(link, artifactPath.toAbsolutePath());
-            }
-            return link;
-        } catch (IOException e) {
-            throw DownloaderException.errorCreatingLink(link, artifactPath, e);
-        }
-    }
-
     private int findPathIndex(Path path, String name) {
         for (int i = 0; i < path.getNameCount(); i++) {
             if (path.getName(i).toString().equals(name)) {
@@ -158,39 +186,19 @@ public class ArtifactHandler {
         return 0;
     }
 
-    private String createName(String mavenArtifactId, String mavenType) {
-        if (mavenType.contains(".")) {
-            return mavenArtifactId + "-" + mavenType;
-        }
-        return mavenArtifactId + "." + mavenType;
+    private List<DownloadableArtifact> getDownloadableArtifacts(ArtifactConfiguration artifact)
+            throws DownloaderException {
+        LOGGER.debug(
+            "Will download {}:{}:{} from {}",
+            artifact.getMavenGroupId(),
+            artifact.getMavenArtifactId(),
+            artifact.getArtifactVersion().orElse("LATEST"),
+            artifact.getRepository());
+        return this.getDownloader(artifact.getRepositoryStrategy()).getDownloadableArtifacts(artifact);
     }
 
-    private String createSha1(Path artifactPath) throws DownloaderException {
-        try {
-            return DigestUtils.sha1Hex(new FileInputStream(artifactPath.toFile()));
-        } catch (IOException e) {
-            throw DownloaderException.errorCalculatingSha1(artifactPath, e);
-        }
-    }
-
-    private Path createArtifactPath(Path working, DownloadableArtifact downloadableArtifact,
-        ArtifactConfiguration artifactConfiguration) throws DownloaderException {
-        Path repositoryPath;
-        if (this.configuration.createRelativeSymlinks()) {
-            Path basePath = this.configuration.getWorkingPath();
-            if (artifactConfiguration.getName().isPresent()) {
-                basePath = basePath.resolve(artifactConfiguration.getName().get());
-            }
-            repositoryPath = basePath.resolve(ARCHIVE_PATH).resolve(artifactConfiguration.getRepository());
-        } else {
-            repositoryPath = working.resolve(ARCHIVE_PATH).resolve(artifactConfiguration.getRepository());
-        }
-        try {
-            Files.createDirectories(repositoryPath);
-            return repositoryPath.resolve(downloadableArtifact.getArtifactName());
-        } catch (IOException e) {
-            throw DownloaderException.errorCreatingArtifactPath(repositoryPath, e);
-        }
+    private AbstractDownloader getDownloader(RepositoryStrategy strategy) {
+        return this.downloaders.stream().filter(downloader -> downloader.handles(strategy)).findFirst().get();
     }
 
     private Path getWorkingDirectory(ArtifactConfiguration artifactConfiguration) {
@@ -200,6 +208,11 @@ public class ArtifactHandler {
             basePath = basePath.resolve(artifactConfiguration.getName().get());
         }
         return basePath.toAbsolutePath().normalize();
+    }
+
+    private void saveToFile(RepositoryStrategy strategy, DownloadableArtifact downloadableArtifact, Path artifactPath)
+            throws DownloaderException {
+        this.getDownloader(strategy).saveArtifactToPath(downloadableArtifact, artifactPath);
     }
 
     private static class PathComparator implements Comparator<Path> {
@@ -223,7 +236,7 @@ public class ArtifactHandler {
             try {
                 return Files.getLastModifiedTime(path);
             } catch (IOException e) {
-                return FileTime.fromMillis(currentTimeInMillis);
+                return FileTime.fromMillis(this.currentTimeInMillis);
             }
         }
     }
