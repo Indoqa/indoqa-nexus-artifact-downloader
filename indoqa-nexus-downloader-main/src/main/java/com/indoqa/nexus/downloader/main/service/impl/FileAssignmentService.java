@@ -19,6 +19,7 @@ package com.indoqa.nexus.downloader.main.service.impl;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -71,14 +72,16 @@ public class FileAssignmentService implements AssignmentService {
 
     @Override
     public Elements getOverview(int start, int count) {
-        Elements assignments = this.getAssignments(start, count);
+        Elements assignments = this.getAssignments(0, Integer.MAX_VALUE);
 
         List<String> values = assignments.getValues()
             .stream()
-            .map(id -> this.getAssignment(id).map(a -> id + " -> " + a.getRepo() + " / " + a.getHost()).orElse(id))
+            .map(id -> new String[] {id, this.getAssignment(id).map(a -> a.getRepo() + " / " + a.getHost()).orElse("")})
+            .sorted(Comparator.comparing(array -> array[1]))
+            .map(array -> array[0] + " -> " + array[1])
             .collect(Collectors.toList());
 
-        return Elements.create(values, start, assignments.getTotalCount());
+        return Elements.create(values, start, count);
     }
 
     @Override
