@@ -17,29 +17,19 @@
 package com.indoqa.nexus.downloader.client.helpers;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import com.indoqa.nexus.downloader.client.configuration.ArtifactConfiguration;
 import com.indoqa.nexus.downloader.client.configuration.DownloaderConfiguration;
 import com.indoqa.nexus.downloader.client.configuration.RepositoryStrategy;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.http.client.fluent.Executor;
 import org.apache.http.client.fluent.Request;
 import org.apache.http.client.fluent.Response;
-import org.joox.JOOX;
-import org.joox.Match;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class GithubPackagesDownloader extends AbstractDownloader {
+public class GithubPackagesDownloader extends AbstractMavenMetadataDownloader {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GithubPackagesDownloader.class);
-
-    private static final String MAVEN_METADATA_XML = "maven-metadata.xml";
-    private static final String SHA1_EXTENSION = ".sha1";
-
     private final String githubPackagesBaseUrl;
     private final String githubOwner;
     private final String githubRepo;
@@ -59,51 +49,38 @@ public class GithubPackagesDownloader extends AbstractDownloader {
     @Override
     public List<DownloadableArtifact> getDownloadableArtifacts(ArtifactConfiguration artifactConfiguration)
         throws DownloaderException {
-        Optional<VersionUpdate> versionUpdate = Optional.empty();
-        Optional<String> baseVersion = artifactConfiguration.getArtifactVersion();
-        if (!baseVersion.isPresent()) {
-            Optional<VersionUpdate> latestVersion = this.getLatestVersion(artifactConfiguration);
-            if (!latestVersion.isPresent()) {
-                throw DownloaderException.errorCouldNotFindLatestVersion(
-                    artifactConfiguration.getMavenGroupId(),
-                    artifactConfiguration.getMavenArtifactId(),
-                    artifactConfiguration.getMavenType());
-            }
-            versionUpdate = latestVersion;
-        }
+        Optional<String> baseVersion = getBaseVersion(artifactConfiguration);
 
         String groupId = artifactConfiguration.getMavenGroupId();
         String artifactId = artifactConfiguration.getMavenArtifactId();
 
-        Optional<String> version = getLatestArtifactVersion(groupId, artifactId, versionUpdate);
+        Set<String> versions = getLatestArtifactVersions(groupId, artifactId, baseVersion);
 
-        ArtifactType artifactType = ArtifactType.extractFromClassifierExtension(artifactConfiguration.getMavenType());
-        String assetBase = this.createAssetBaseName(artifactId, version, artifactType);
-        String assetBaseUrl = this.createAssertUrl(groupId, artifactId, versionUpdate.map(VersionUpdate::getVersion), assetBase);
-        String sha1sum = this.getAssetSha1sum(assetBaseUrl);
+        List<DownloadableArtifact> result = new ArrayList<>(versions.size());
+        for (String version : versions) {
+            ArtifactType artifactType = ArtifactType.extractFromClassifierExtension(artifactConfiguration.getMavenType());
+            String assetBase = this.createAssetBaseName(artifactId, Optional.of(version), artifactType);
+            String assetBaseUrl = this.createAssertUrl(groupId, artifactId, baseVersion, assetBase);
+            String sha1sum = this.getAssetSha1sum(assetBaseUrl);
 
-        return Collections.singletonList(DownloadableArtifact.of(versionUpdate.map(VersionUpdate::getVersion).get(), assetBaseUrl, sha1sum));
+            result.add(DownloadableArtifact.of(version, assetBaseUrl, sha1sum));
+        }
+        return result;
     }
 
-    private Optional<String> getLatestArtifactVersion(String groupId, String artifactId, Optional<VersionUpdate> versionUpdate)
+    private Set<String> getLatestArtifactVersions(String groupId, String artifactId, Optional<String> version)
         throws DownloaderException {
-        Request get = Request.Get(this.createAssertUrl(groupId, artifactId, versionUpdate.map(VersionUpdate::getVersion), MAVEN_METADATA_XML));
+        Request get = Request.Get(this.createAssertUrl(groupId, artifactId, version, MAVEN_METADATA_XML));
         try {
             Response response = this.executeRequest(get);
             String mavenMetadata = response.returnContent().asString();
-            Optional<String> updated = new MavenMetadataHelper(mavenMetadata).getUpdated(versionUpdate.map(VersionUpdate::getLastUpdated));
-            if (updated.isPresent()) {
-                String buildVersion = updated.get();
-                LOGGER.trace("Will use the following version '{}' as found in <updated> tag.", buildVersion);
-                return Optional.ofNullable(buildVersion);
-            }
-            return Optional.empty();
+            return new MavenMetadataHelper(mavenMetadata).getVersions();
         } catch (IOException e) {
             throw DownloaderException.errorExecutingRequest(get, e);
         }
     }
 
-    private Optional<VersionUpdate> getLatestVersion(ArtifactConfiguration artifactConfiguration) throws DownloaderException {
+    protected Optional<String> downloadLatestVersion(ArtifactConfiguration artifactConfiguration) throws DownloaderException {
         Request get = Request.Get(createMavenMetadataUrl(artifactConfiguration));
         try {
             Response response = this.executeRequest(get);
@@ -111,20 +88,10 @@ public class GithubPackagesDownloader extends AbstractDownloader {
 
             MavenMetadataHelper mavenMetadataHelper = new MavenMetadataHelper(mavenMetadata);
             Optional<String> latest = mavenMetadataHelper.getLatest();
-            Optional<String> updated = mavenMetadataHelper.getLastUpdated();
 
-            String version = null;
             if (latest.isPresent()) {
-                version = latest.get();
-                LOGGER.trace("Will use the following version '{}' as found in <latest> tag.", version);
-            }
-            String lastUpdated = null;
-            if (updated.isPresent()) {
-                lastUpdated = updated.get();
-                LOGGER.trace("Will use the following lastUpdated '{}' as found in <lastUpdated> tag.", lastUpdated);
-            }
-            if (version != null && lastUpdated != null) {
-                return Optional.ofNullable(createVersionUpdate(version, lastUpdated));
+                LOGGER.trace("Will use the following version '{}' as found in <latest> tag.", latest.get());
+                return latest;
             }
         } catch (IOException e) {
             throw DownloaderException.errorExecutingRequest(get, e);
@@ -132,33 +99,7 @@ public class GithubPackagesDownloader extends AbstractDownloader {
         return Optional.empty();
     }
 
-    private String getAssetSha1sum(String assetBaseUrl) throws DownloaderException {
-        Request get = Request.Get(assetBaseUrl + SHA1_EXTENSION);
-        try {
-            return this.executeRequest(get).returnContent().asString();
-        } catch (IOException e) {
-            throw DownloaderException.errorExecutingRequest(get, e);
-        }
-    }
-
-    private String createAssetBaseName(String artifactId, Optional<String> version, ArtifactType artifactType) {
-        StringBuilder result = new StringBuilder();
-        result
-            .append(artifactId)
-            .append('-')
-            .append(version.get());
-        if (artifactType.getClassifier() != null) {
-            result
-                .append('-')
-                .append(artifactType.getClassifier());
-        }
-        result
-            .append('.')
-            .append(artifactType.getExtension());
-        return result.toString();
-    }
-
-    private String createAssertUrl(String groupId, String artifactId, Optional<String> version, String asset) {
+    protected String createAssertUrl(String groupId, String artifactId, Optional<String> version, String asset) {
         StringBuilder result = new StringBuilder();
         result
             .append(this.githubPackagesBaseUrl)
@@ -175,36 +116,5 @@ public class GithubPackagesDownloader extends AbstractDownloader {
 
         result.append(asset);
         return result.toString();
-    }
-
-    private String createMavenMetadataUrl(ArtifactConfiguration configuration) {
-        return this.createAssertUrl(configuration.getMavenGroupId(),
-            configuration.getMavenArtifactId(),
-            Optional.empty(),
-            MAVEN_METADATA_XML);
-    }
-    private VersionUpdate createVersionUpdate(String version, String lastUpdated) {
-        if (version == null || lastUpdated == null) {
-            return null;
-        }
-        return new VersionUpdate(version, lastUpdated);
-    }
-
-    private class VersionUpdate {
-        private final String version;
-        private final String lastUpdated;
-
-        private VersionUpdate(String version, String lastUpdated) {
-            this.version = version;
-            this.lastUpdated = lastUpdated;
-        }
-
-        public String getVersion() {
-            return version;
-        }
-
-        public String getLastUpdated() {
-            return lastUpdated;
-        }
     }
 }

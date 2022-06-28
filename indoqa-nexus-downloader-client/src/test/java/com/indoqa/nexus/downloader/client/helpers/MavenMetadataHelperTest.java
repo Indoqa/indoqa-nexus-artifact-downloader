@@ -21,7 +21,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Optional;
+import java.util.Set;
 
+import org.hamcrest.CoreMatchers;
+import org.hamcrest.Matcher;
+import org.hamcrest.MatcherAssert;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -41,11 +45,6 @@ public class MavenMetadataHelperTest {
     public void testGithubMavenMetadata() {
         MavenMetadataHelper mavenMetadataHelper = new MavenMetadataHelper(getMavenMetadata("github-maven-metadata.xml"));
 
-        Optional<String> lastUpdated = mavenMetadataHelper.getLastUpdated();
-        Assert.assertNotNull(lastUpdated);
-        Assert.assertTrue("LastUpdated must be present.", lastUpdated.isPresent());
-        Assert.assertEquals("20220615095653", lastUpdated.get());
-
         Optional<String> latest = mavenMetadataHelper.getLatest();
         Assert.assertNotNull(latest);
         Assert.assertTrue("Latest must be present.", latest.isPresent());
@@ -56,14 +55,25 @@ public class MavenMetadataHelperTest {
     public void testGithubVersionedMavenMetadata() {
         MavenMetadataHelper mavenMetadataHelper = new MavenMetadataHelper(getMavenMetadata("github-versioned-maven-metadata.xml"));
 
-        Optional<String> updated = mavenMetadataHelper.getUpdated(Optional.of(""));
+        Set<String> updated = mavenMetadataHelper.getVersions();
         Assert.assertNotNull(updated);
-        Assert.assertFalse("Updated must not be present.", updated.isPresent());
+        Assert.assertEquals(14, updated.size());
 
-        updated = mavenMetadataHelper.getUpdated(Optional.of("20220510083735"));
-        Assert.assertNotNull(updated);
-        Assert.assertTrue("Updated must be present.", updated.isPresent());
-        Assert.assertEquals("2.193.0-20220510.083733-4", updated.get());
+        MatcherAssert.assertThat(updated, CoreMatchers.hasItems(
+            "2.193.0-20220507.010157-1",
+            "2.193.0-20220507.094633-2",
+            "2.193.0-20220509.103317-3",
+            "2.193.0-20220510.083733-4",
+            "2.193.0-20220511.103255-5",
+            "2.193.0-20220512.071053-6",
+            "2.193.0-20220512.084534-7",
+            "2.193.0-20220512.093909-8",
+            "2.193.0-20220606.190231-9",
+            "2.193.0-20220606.195309-10",
+            "2.193.0-20220607.151942-11",
+            "2.193.0-20220607.163115-12",
+            "2.193.0-20220609.093522-13",
+            "2.193.0-20220615.095637-14"));
     }
 
     @Test

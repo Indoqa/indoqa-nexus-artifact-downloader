@@ -16,7 +16,9 @@
  */
 package com.indoqa.nexus.downloader.client.helpers;
 
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 import org.joox.JOOX;
 import org.joox.Match;
@@ -38,37 +40,11 @@ public class MavenMetadataHelper {
         return Optional.ofNullable(match.get(0).getTextContent());
     }
 
-    public Optional<String> getLastUpdated() {
-        Match match = metadata.find("lastUpdated");
-        if (match.isEmpty() || match.get().isEmpty()) {
-            return Optional.empty();
+    public Set<String> getVersions() {
+        Set<String> versions = new HashSet<>();
+        for (Element element : metadata.find("value")) {
+            versions.add(element.getTextContent());
         }
-        return Optional.ofNullable(match.get(0).getTextContent());
-    }
-
-    public Optional<String> getUpdated(Optional<String> updated) {
-        if (!updated.isPresent()) {
-            return Optional.empty();
-        }
-        Match match = metadata.find("updated");
-        if (match.isEmpty() || match.get().isEmpty()) {
-            return Optional.empty();
-        }
-
-        String updatedValue = updated.get();
-        for (Element element : match.get()) {
-            if (!updatedValue.equals(element.getTextContent())) {
-                continue;
-            }
-
-            Match value = JOOX.$(element.getParentNode()).find("value");
-            if (value.isEmpty() || value.get().isEmpty()) {
-                return Optional.empty();
-            }
-
-            return Optional.ofNullable(value.get(0).getTextContent());
-        }
-
-        return Optional.empty();
+        return versions;
     }
 }

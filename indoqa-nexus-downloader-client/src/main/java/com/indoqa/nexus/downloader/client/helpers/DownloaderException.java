@@ -49,6 +49,10 @@ public final class DownloaderException extends Exception {
         return new DownloaderException(Type.NOT_FOUND,
             String.format(DEFAULT, "No latest version of artifact found for %s %s %s", mavenGroupId, mavenArtifactId, mavenType));
     }
+    public static DownloaderException errorCouldNotFindLatestVersionForUpdate(String mavenGroupId, String mavenArtifactId, String update) {
+        return new DownloaderException(Type.NOT_FOUND,
+            String.format(DEFAULT, "No latest version of artifact found for %s %s  update: %s", mavenGroupId, mavenArtifactId, update));
+    }
 
     public static DownloaderException notFound(String mavenGroupId, String mavenArtifactId, String mavenType) {
         return new DownloaderException(Type.NOT_FOUND,

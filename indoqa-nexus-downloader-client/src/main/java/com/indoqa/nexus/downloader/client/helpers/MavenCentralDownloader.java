@@ -25,18 +25,14 @@ import com.indoqa.nexus.downloader.client.configuration.ArtifactConfiguration;
 import com.indoqa.nexus.downloader.client.configuration.DownloaderConfiguration;
 import com.indoqa.nexus.downloader.client.configuration.RepositoryStrategy;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.client.fluent.Executor;
 import org.apache.http.client.fluent.Request;
 import org.apache.http.client.fluent.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MavenCentralDownloader extends AbstractDownloader {
+public class MavenCentralDownloader extends AbstractMavenMetadataDownloader {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MavenCentralDownloader.class);
-
-    private static final String MAVEN_METADATA_XML = "maven-metadata.xml";
-    private static final String SHA1_EXTENSION = ".sha1";
 
     private final String mavenCentralBase;
 
@@ -53,17 +49,7 @@ public class MavenCentralDownloader extends AbstractDownloader {
     @Override
     public List<DownloadableArtifact> getDownloadableArtifacts(ArtifactConfiguration artifactConfiguration)
         throws DownloaderException {
-        Optional<String> version = artifactConfiguration.getArtifactVersion();
-        if (!version.isPresent()) {
-            Optional<String> latestVersion = this.getLatestVersion(artifactConfiguration);
-            if (!latestVersion.isPresent()) {
-                throw DownloaderException.errorCouldNotFindLatestVersion(
-                    artifactConfiguration.getMavenGroupId(),
-                    artifactConfiguration.getMavenArtifactId(),
-                    artifactConfiguration.getMavenType());
-            }
-            version = latestVersion;
-        }
+        Optional<String> version = getBaseVersion(artifactConfiguration);
 
         String groupId = artifactConfiguration.getMavenGroupId();
         String artifactId = artifactConfiguration.getMavenArtifactId();
@@ -75,14 +61,13 @@ public class MavenCentralDownloader extends AbstractDownloader {
         return Collections.singletonList(DownloadableArtifact.of(version.get(), assetBaseUrl, sha1sum));
     }
 
-    private Optional<String> getLatestVersion(ArtifactConfiguration artifactConfiguration) throws DownloaderException {
+    protected Optional<String> downloadLatestVersion(ArtifactConfiguration artifactConfiguration) throws DownloaderException {
         Request get = Request.Get(createMavenMetadataUrl(artifactConfiguration));
         try {
             Response response = this.executeRequest(get);
             String mavenMetadata = response.returnContent().asString();
             MavenMetadataHelper mavenMetadataHelper = new MavenMetadataHelper(mavenMetadata);
             Optional<String> version = mavenMetadataHelper.getLatest();
-//            StringUtils.substringBetween(mavenMetadata, "<latest>", "</latest>");
             LOGGER.trace("Will use the following version '{}' as found in <latest> tag.", version);
             return version;
         } catch (IOException e) {
@@ -90,33 +75,7 @@ public class MavenCentralDownloader extends AbstractDownloader {
         }
     }
 
-    private String getAssetSha1sum(String assetBaseUrl) throws DownloaderException {
-        Request get = Request.Get(assetBaseUrl + SHA1_EXTENSION);
-        try {
-            return this.executeRequest(get).returnContent().asString();
-        } catch (IOException e) {
-            throw DownloaderException.errorExecutingRequest(get, e);
-        }
-    }
-
-    private String createAssetBaseName(String artifactId, Optional<String> version, ArtifactType artifactType) {
-        StringBuilder result = new StringBuilder();
-        result
-            .append(artifactId)
-            .append('-')
-            .append(version.get());
-        if (artifactType.getClassifier() != null) {
-            result
-                .append('-')
-                .append(artifactType.getClassifier());
-        }
-        result
-            .append('.')
-            .append(artifactType.getExtension());
-        return result.toString();
-    }
-
-    private String createAssertUrl(String groupId, String artifactId, Optional<String> version, String asset) {
+    protected String createAssertUrl(String groupId, String artifactId, Optional<String> version, String asset) {
         StringBuilder result = new StringBuilder();
         result
             .append(this.mavenCentralBase)
@@ -129,13 +88,6 @@ public class MavenCentralDownloader extends AbstractDownloader {
 
         result.append(asset);
         return result.toString();
-    }
-
-    private String createMavenMetadataUrl(ArtifactConfiguration configuration) {
-        return this.createAssertUrl(configuration.getMavenGroupId(),
-            configuration.getMavenArtifactId(),
-            Optional.empty(),
-            MAVEN_METADATA_XML);
     }
 
     private String convertToMavenUrlPath(String path) {
