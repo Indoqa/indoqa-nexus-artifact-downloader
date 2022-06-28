@@ -92,7 +92,7 @@ public class NexusDownloaderClient {
             holder = FileDownloaderConfiguration.create(commandLine.getArgs());
         }
 
-        if (!holder.hasConfiguration()) {
+        if (!holder.hasConfiguration() && !holder.isErroneous()) {
             holder = HttpDownloaderConfiguration.create(
                 commandLine.getArgs(),
                 Optional.ofNullable(commandLine.getOptionValue(OPTION_DNS_NAME_SERVER)),

@@ -25,15 +25,31 @@ public interface DownloaderConfiguration {
 
     boolean moreVerbose();
 
-    String getUsername();
+    default String getUsername() {
+        return "";
+    }
 
-    String getPassword();
+    default String getPassword() {
+        return "";
+    }
 
-    String getNexusBaseUrl();
+    default String getNexusBaseUrl() {
+        return "";
+    }
 
     default String getMavenCentralBaseUrl() {
         return "https://repo1.maven.org/maven2/";
     }
+
+    default String getGithubPackagesBaseUrl() {
+        return "https://maven.pkg.github.com/";
+    }
+
+    String getGithubOwner();
+
+    String getGithubRepo();
+
+    String getGithubToken();
 
     default String getNexusPathRestSearch() {
         return "service/rest/beta/search";

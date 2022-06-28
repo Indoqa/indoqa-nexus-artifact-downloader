@@ -59,9 +59,9 @@ public class FileArtifactConfiguration implements ArtifactConfiguration {
         throws ConfigurationException {
         String value = JsonHelper.getString(config, parameter, defaultValue.name());
 
-        try{
+        try {
             return (T) Enum.valueOf(defaultValue.getClass(), value);
-        }catch(Exception e){
+        } catch (Exception e) {
             throw ConfigurationException.invalidValue(parameter, "artifact configuration", value,
                 Arrays.toString(defaultValue.getDeclaringClass().getEnumConstants()), e);
         }

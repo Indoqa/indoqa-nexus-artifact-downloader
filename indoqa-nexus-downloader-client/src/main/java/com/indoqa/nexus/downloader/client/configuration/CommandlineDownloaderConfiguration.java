@@ -45,6 +45,11 @@ public class CommandlineDownloaderConfiguration implements DownloaderConfigurati
     private static final String OPTION_PASSWORD = "p";
     private static final String OPTION_MAVEN_REPOSITORY_STRATEGY = "mvnrs";
 
+    private static final String OPTION_GITHUB_OWNER = "gho";
+
+    private static final String OPTION_GITHUB_REPO = "ghr";
+    private static final String OPTION_GITHUB_TOKEN = "ght";
+
     private static final String OPTION_VERBOSE = "verbose";
     private static final String DEFAULT_MAVEN_TYPE = "jar";
     private static final String DEFAULT_MAVEN_REPOSITORY = "releases";
@@ -123,6 +128,10 @@ public class CommandlineDownloaderConfiguration implements DownloaderConfigurati
         Option repositoryStrategyOption = new Option(OPTION_MAVEN_REPOSITORY_STRATEGY, "maven-repository-strategy",true, "Repository strategy");
         options.addOption(repositoryStrategyOption);
 
+        options.addOption(new Option(OPTION_GITHUB_OWNER, "github-owner", true, "Github packages owner"));
+        options.addOption(new Option(OPTION_GITHUB_REPO, "github-repo", true, "Github packages repository"));
+        options.addOption(new Option(OPTION_GITHUB_TOKEN, "github-token", true, "Github packages token"));
+
         options.addOption(new Option(OPTION_DELETE, "delete", false, "Remove old artifacts"));
         options.addOption(new Option(OPTION_COUNT, "count", true, "Count of artifacts to keep"));
         options.addOption(new Option(OPTION_RELATIVE_SYMLINK, "relative-symlink", false, "Create relative symlinks"));
@@ -157,6 +166,21 @@ public class CommandlineDownloaderConfiguration implements DownloaderConfigurati
     @Override
     public String getNexusBaseUrl() {
         return this.commandLine.getOptionValue(OPTION_NEXUS_BASE_URL);
+    }
+
+    @Override
+    public String getGithubOwner() {
+        return this.commandLine.getOptionValue(OPTION_GITHUB_OWNER);
+    }
+
+    @Override
+    public String getGithubRepo() {
+        return this.commandLine.getOptionValue(OPTION_GITHUB_REPO);
+    }
+
+    @Override
+    public String getGithubToken() {
+        return this.commandLine.getOptionValue(OPTION_GITHUB_TOKEN);
     }
 
     @Override

@@ -53,16 +53,13 @@ public class NexusDownloader extends AbstractDownloader {
     private final String restSearchPath;
 
     public NexusDownloader(DownloaderConfiguration configuration) {
-        super(Executor
-            .newInstance()
-            .auth(configuration.getUsername(), configuration.getPassword())
-            .authPreemptive(configuration.getNexusBaseUrl()));
+        super(configuration.getUsername(), configuration.getPassword(), configuration.getNexusBaseUrl());
         this.restSearchPath = configuration.getNexusPathRestSearch();
         this.configuration = configuration;
     }
 
     @Override
-    public boolean handles(RepositoryStrategy strategy) {
+    public boolean canHandle(RepositoryStrategy strategy) {
         return RepositoryStrategy.NEXUS.equals(strategy);
     }
 

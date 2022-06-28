@@ -30,11 +30,30 @@ public abstract class AbstractDownloader {
 
     private final Executor executor;
 
-    protected AbstractDownloader(Executor executor) {
+    protected AbstractDownloader() {
+        this.executor = Executor.newInstance();
+    }
+
+    protected AbstractDownloader(String user, String password, String url) {
+        if (user != null && password != null && url != null) {
+            this.executor = Executor.newInstance().auth(user, password).authPreemptive(url);
+        } else {
+            this.executor = null;
+        }
+    }
+
+    private AbstractDownloader(Executor executor) {
         this.executor = executor;
     }
 
-    public abstract boolean handles(RepositoryStrategy strategy);
+    public final boolean handles(RepositoryStrategy strategy) {
+        if (this.executor == null) {
+            return false;
+        }
+        return this.canHandle(strategy);
+    }
+
+    protected abstract boolean canHandle(RepositoryStrategy strategy);
 
     protected Response executeRequest(Request get) throws DownloaderException {
         try {

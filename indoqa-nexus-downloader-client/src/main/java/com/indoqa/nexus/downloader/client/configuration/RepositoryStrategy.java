@@ -17,5 +17,5 @@
 package com.indoqa.nexus.downloader.client.configuration;
 
 public enum RepositoryStrategy {
-    NEXUS, MAVEN_CENTRAL,
+    NEXUS, MAVEN_CENTRAL, GITHUB_PACKAGES,
 }

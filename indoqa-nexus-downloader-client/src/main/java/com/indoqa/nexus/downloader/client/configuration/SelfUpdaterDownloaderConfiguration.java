@@ -93,6 +93,21 @@ public class SelfUpdaterDownloaderConfiguration implements DownloaderConfigurati
     }
 
     @Override
+    public String getGithubOwner() {
+        return "notused";
+    }
+
+    @Override
+    public String getGithubRepo() {
+        return "notused";
+    }
+
+    @Override
+    public String getGithubToken() {
+        return "notused";
+    }
+
+    @Override
     public boolean createRelativeSymlinks() {
         return false;
     }

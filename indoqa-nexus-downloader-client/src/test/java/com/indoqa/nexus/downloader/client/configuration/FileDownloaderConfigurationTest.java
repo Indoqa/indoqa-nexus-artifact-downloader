@@ -23,6 +23,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -173,7 +174,7 @@ public class FileDownloaderConfigurationTest {
     public void erroneousFileWithPath() throws IOException {
         File file = File.createTempFile("downloader-test", "json");
         file.deleteOnExit();
-        try (OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
+        try (OutputStreamWriter writer = new OutputStreamWriter(Files.newOutputStream(file.toPath()), StandardCharsets.UTF_8)) {
             writer.write("{ test: {} }");
         }
         String path = file.getAbsolutePath();
@@ -196,37 +197,10 @@ public class FileDownloaderConfigurationTest {
         file.deleteOnExit();
 
         Map<String, Object> baseConfigParameter = new HashMap<>();
-        writeBaseConfigParameter(file, baseConfigParameter);
+        writeParameter(file, baseConfigParameter);
 
         String path = file.getAbsolutePath();
         ConfigurationHolder configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
-        assertNotNull(configurationHolder);
-        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
-        assertEquals(
-            "Failed to parse configuration file: Parameter 'nexusUsername' is missing in 'baseConfig'",
-            configurationHolder.getErrorMessage());
-
-        baseConfigParameter.put("nexusUsername", "user");
-        writeBaseConfigParameter(file, baseConfigParameter);
-        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
-        assertNotNull(configurationHolder);
-        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
-        assertEquals(
-            "Failed to parse configuration file: Parameter 'nexusPassword' is missing in 'baseConfig'",
-            configurationHolder.getErrorMessage());
-
-        baseConfigParameter.put("nexusPassword", "pass");
-        writeBaseConfigParameter(file, baseConfigParameter);
-        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
-        assertNotNull(configurationHolder);
-        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
-        assertEquals(
-            "Failed to parse configuration file: Parameter 'nexusUrl' is missing in 'baseConfig'",
-            configurationHolder.getErrorMessage());
-
-        baseConfigParameter.put("nexusUrl", "pass");
-        writeBaseConfigParameter(file, baseConfigParameter);
-        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
         assertNotNull(configurationHolder);
         assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
         assertEquals(
@@ -234,7 +208,7 @@ public class FileDownloaderConfigurationTest {
             configurationHolder.getErrorMessage());
 
         baseConfigParameter.put("createRelativeSymlinks", false);
-        writeBaseConfigParameter(file, baseConfigParameter);
+        writeParameter(file, baseConfigParameter);
         configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
         assertNotNull(configurationHolder);
         assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
@@ -243,7 +217,7 @@ public class FileDownloaderConfigurationTest {
             configurationHolder.getErrorMessage());
 
         baseConfigParameter.put("verbose", false);
-        writeBaseConfigParameter(file, baseConfigParameter);
+        writeParameter(file, baseConfigParameter);
         configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
         assertNotNull(configurationHolder);
         assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
@@ -252,17 +226,178 @@ public class FileDownloaderConfigurationTest {
             configurationHolder.getErrorMessage());
 
         baseConfigParameter.put("moreVerbose", false);
-        writeBaseConfigParameter(file, baseConfigParameter);
+        writeParameter(file, baseConfigParameter);
         configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
         assertNotNull(configurationHolder);
         assertTrue("Missing required parameter should lead to an error.", configurationHolder.isErroneous());
+        assertEquals(
+            "Failed to parse configuration file: Parameter 'mavenArtifacts' is missing in 'config'",
+            configurationHolder.getErrorMessage());
 
-        JSONObject object = new JSONObject("{ }");
-        object.put("baseConfig", baseConfigParameter);
-        object.put("mavenArtifacts", new JSONArray());
-        writeJsonToFile(file, object);
+        Map<String, Object> mavenArtifact = new HashMap<>();
+        mavenArtifact.put("groupId", "org.example");
+        mavenArtifact.put("artifactId", "testing");
+        mavenArtifact.put("repo", "releases");
+        mavenArtifact.put("type", "jar");
+        mavenArtifact.put("name", "test");
+        mavenArtifact.put("version", "1.0.0");
+        mavenArtifact.put("repoStrategy", "NEXUS");
+
+        writeParameter(file, baseConfigParameter, mavenArtifact);
+
         configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+        assertTrue("Missing required parameter should lead to an error.", configurationHolder.isErroneous());
+        assertEquals(
+            "Failed to parse configuration file: Parameter 'nexusUsername' is missing in 'baseConfig'",
+            configurationHolder.getErrorMessage());
+
+        baseConfigParameter.put("nexusUsername", "user");
+        writeParameter(file, baseConfigParameter, mavenArtifact);
+        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
+        assertEquals(
+            "Failed to parse configuration file: Parameter 'nexusPassword' is missing in 'baseConfig'",
+            configurationHolder.getErrorMessage());
+
+        baseConfigParameter.put("nexusPassword", "pass");
+        writeParameter(file, baseConfigParameter, mavenArtifact);
+        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
+        assertEquals(
+            "Failed to parse configuration file: Parameter 'nexusUrl' is missing in 'baseConfig'",
+            configurationHolder.getErrorMessage());
+
+        baseConfigParameter.put("nexusUrl", "url");
+        writeParameter(file, baseConfigParameter, mavenArtifact);
+        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
         assertFalse("All required parameters should not lead to an error.", configurationHolder.isErroneous());
+
+
+        mavenArtifact.put("repoStrategy", "GITHUB_PACKAGES");
+
+        writeParameter(file, baseConfigParameter, mavenArtifact);
+
+        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+        assertTrue("Missing required parameter should lead to an error.", configurationHolder.isErroneous());
+        assertEquals(
+            "Failed to parse configuration file: Parameter 'githubOwner' is missing in 'baseConfig'",
+            configurationHolder.getErrorMessage());
+
+        baseConfigParameter.put("githubOwner", "owner");
+        writeParameter(file, baseConfigParameter, mavenArtifact);
+        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
+        assertEquals(
+            "Failed to parse configuration file: Parameter 'githubToken' is missing in 'baseConfig'",
+            configurationHolder.getErrorMessage());
+
+        baseConfigParameter.put("githubToken", "token");
+        writeParameter(file, baseConfigParameter, mavenArtifact);
+        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
+        assertEquals(
+            "Failed to parse configuration file: Parameter 'githubRepo' is missing in 'baseConfig'",
+            configurationHolder.getErrorMessage());
+
+        baseConfigParameter.put("githubRepo", "repo");
+        writeParameter(file, baseConfigParameter, mavenArtifact);
+        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+        assertFalse("All required parameters should not lead to an error.", configurationHolder.isErroneous());
+    }
+
+    @Test
+    public void testMissingNexusParametersFileWithPath() throws IOException {
+        File file = File.createTempFile("downloader-test", "json");
+        file.deleteOnExit();
+
+        Map<String, Object> baseConfigParameter = new HashMap<>();
+        baseConfigParameter.put("nexusUsername", "user");
+        writeParameter(file, baseConfigParameter);
+
+        String path = file.getAbsolutePath();
+        ConfigurationHolder configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
+        assertEquals(
+            "Failed to parse configuration file: Parameter 'nexusPassword' is missing in 'baseConfig'",
+            configurationHolder.getErrorMessage());
+
+        baseConfigParameter.put("nexusPassword", "pass");
+        writeParameter(file, baseConfigParameter);
+        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
+        assertEquals(
+            "Failed to parse configuration file: Parameter 'nexusUrl' is missing in 'baseConfig'",
+            configurationHolder.getErrorMessage());
+
+        baseConfigParameter.put("nexusUrl", "url");
+        writeParameter(file, baseConfigParameter);
+        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+
+
+        baseConfigParameter = new HashMap<>();
+        baseConfigParameter.put("nexusUrl", "url");
+        writeParameter(file, baseConfigParameter);
+        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+
+        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
+        assertEquals(
+            "Failed to parse configuration file: Parameter 'nexusUsername' is missing in 'baseConfig'",
+            configurationHolder.getErrorMessage());
+    }
+    @Test
+    public void testMissingGithubParametersFileWithPath() throws IOException {
+        File file = File.createTempFile("downloader-test", "json");
+        file.deleteOnExit();
+
+        Map<String, Object> baseConfigParameter = new HashMap<>();
+        baseConfigParameter.put("githubToken", "token");
+        writeParameter(file, baseConfigParameter);
+
+        String path = file.getAbsolutePath();
+        ConfigurationHolder configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
+        assertEquals(
+            "Failed to parse configuration file: Parameter 'githubOwner' is missing in 'baseConfig'",
+            configurationHolder.getErrorMessage());
+
+        baseConfigParameter.put("githubOwner", "owner");
+        writeParameter(file, baseConfigParameter);
+        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
+        assertEquals(
+            "Failed to parse configuration file: Parameter 'githubRepo' is missing in 'baseConfig'",
+            configurationHolder.getErrorMessage());
+
+        baseConfigParameter.put("githubRepo", "url");
+        writeParameter(file, baseConfigParameter);
+        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+
+
+        baseConfigParameter = new HashMap<>();
+        baseConfigParameter.put("githubOwner", "owner");
+        writeParameter(file, baseConfigParameter);
+        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
+        assertNotNull(configurationHolder);
+
+        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
+        assertEquals(
+            "Failed to parse configuration file: Parameter 'githubToken' is missing in 'baseConfig'",
+            configurationHolder.getErrorMessage());
     }
 
     private void writeJsonToFile(File file, JSONObject object) throws IOException {
@@ -271,7 +406,16 @@ public class FileDownloaderConfigurationTest {
         }
     }
 
-    private void writeBaseConfigParameter(File file, Map<String, Object> baseConfigParameter) throws IOException {
+    private void writeParameter(File file, Map<String, Object> baseConfigParameter, Map<String, Object> mavenArtifact) throws IOException {
+        JSONObject object = new JSONObject("{ }");
+        object.put("baseConfig", baseConfigParameter);
+        JSONArray value = new JSONArray();
+        value.put(mavenArtifact);
+        object.put("mavenArtifacts", value);
+        writeJsonToFile(file, object);
+    }
+
+    private void writeParameter(File file, Map<String, Object> baseConfigParameter) throws IOException {
         JSONObject object = new JSONObject("{ }");
         object.put("baseConfig", baseConfigParameter);
         writeJsonToFile(file, object);

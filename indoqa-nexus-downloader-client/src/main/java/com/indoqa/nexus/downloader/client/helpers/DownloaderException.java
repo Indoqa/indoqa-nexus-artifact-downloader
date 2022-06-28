@@ -21,12 +21,13 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.Locale;
 
+import com.indoqa.nexus.downloader.client.configuration.RepositoryStrategy;
 import org.apache.http.client.fluent.Request;
 import org.apache.http.entity.ContentType;
 
 public final class DownloaderException extends Exception {
 
-    private static Locale DEFAULT = Locale.GERMAN;
+    private static final Locale DEFAULT = Locale.GERMAN;
 
     private final Type type;
 
@@ -89,7 +90,11 @@ public final class DownloaderException extends Exception {
         return new DownloaderException(Type.FILESYSTEM_ERROR, "Could not create link " + link + " for target " + artifactPath, e);
     }
 
+    public static DownloaderException errorMisconfiguration(RepositoryStrategy strategy) {
+        return new DownloaderException(Type.INTERNAL_ERROR, "Error in configuration found for " + strategy + " .");
+    }
+
     private enum Type {
-        NOT_FOUND, INTERNAL_ERROR, FILESYSTEM_ERROR, NETWORK_ERROR;
+        NOT_FOUND, INTERNAL_ERROR, FILESYSTEM_ERROR, NETWORK_ERROR
     }
 }

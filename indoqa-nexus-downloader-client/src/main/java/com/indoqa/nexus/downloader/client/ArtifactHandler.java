@@ -30,6 +30,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
@@ -53,9 +54,10 @@ public class ArtifactHandler {
 
     public ArtifactHandler(DownloaderConfiguration configuration) {
         this.configuration = configuration;
-        this.downloaders = new ArrayList<>(2);
+        this.downloaders = new ArrayList<>(3);
         this.downloaders.add(new NexusDownloader(configuration));
         this.downloaders.add(new MavenCentralDownloader(configuration));
+        this.downloaders.add(new GithubPackagesDownloader(configuration));
     }
 
     public DownloadResult download(ArtifactConfiguration artifactConfiguration) throws DownloaderException {
@@ -148,7 +150,7 @@ public class ArtifactHandler {
     }
 
     private String createSha1(Path artifactPath) throws DownloaderException {
-        try (InputStream inputStream = new BufferedInputStream(new FileInputStream(artifactPath.toFile()))) {
+        try (InputStream inputStream = new BufferedInputStream(Files.newInputStream(artifactPath.toFile().toPath()))) {
             return DigestUtils.sha1Hex(inputStream);
         } catch (IOException e) {
             throw DownloaderException.errorCalculatingSha1(artifactPath, e);
@@ -159,15 +161,16 @@ public class ArtifactHandler {
         String mavenType = artifactConfiguration.getMavenType();
         try {
             long currentTimeInMillis = System.currentTimeMillis();
-            List<Path> collect = Files
-                .list(artifactParentPath)
-                .filter(path -> path.getFileName().toString().endsWith(mavenType))
-                .sorted(new PathComparator(currentTimeInMillis))
-                .skip(this.configuration.getKeepNumberOfOldEntries())
-                .collect(Collectors.toList());
+            try (Stream<Path> files = Files.list(artifactParentPath)) {
+                List<Path> collect = files
+                    .filter(path -> path.getFileName().toString().endsWith(mavenType))
+                    .sorted(new PathComparator(currentTimeInMillis))
+                    .skip(this.configuration.getKeepNumberOfOldEntries())
+                    .collect(Collectors.toList());
 
-            for (Path path : collect) {
-                Files.deleteIfExists(path);
+                for (Path path : collect) {
+                    Files.deleteIfExists(path);
+                }
             }
         } catch (Exception e) {
             LOGGER.error("Could not determine artifact count in {} for type {}. {}", artifactParentPath, mavenType, e.getMessage());
@@ -197,8 +200,12 @@ public class ArtifactHandler {
         return this.getDownloader(artifact.getRepositoryStrategy()).getDownloadableArtifacts(artifact);
     }
 
-    private AbstractDownloader getDownloader(RepositoryStrategy strategy) {
-        return this.downloaders.stream().filter(downloader -> downloader.handles(strategy)).findFirst().get();
+    private AbstractDownloader getDownloader(RepositoryStrategy strategy) throws DownloaderException {
+        Optional<AbstractDownloader> first = this.downloaders.stream().filter(downloader -> downloader.handles(strategy)).findFirst();
+        if (!first.isPresent()) {
+            throw DownloaderException.errorMisconfiguration(strategy);
+        }
+        return first.get();
     }
 
     private Path getWorkingDirectory(ArtifactConfiguration artifactConfiguration) {

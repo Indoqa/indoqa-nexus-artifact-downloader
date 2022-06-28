@@ -18,12 +18,15 @@ package com.indoqa.nexus.downloader.client.configuration;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
+import java.util.stream.StreamSupport;
 
 import com.indoqa.nexus.downloader.client.json.JsonHelper;
 import org.json.JSONArray;
@@ -43,13 +46,17 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
 
     private String username;
     private String password;
-    private String baseUrl;
+    private String nexusBaseUrl;
     private boolean createRelativeSymlinks;
     private int countToKeep;
     private boolean deleteOld;
     private boolean verbose;
     private boolean moreVerbose;
     private String nexusPathRestSearch;
+
+    private String githubOwner;
+    private String githubRepo;
+    private String githubToken;
 
     public static ConfigurationHolder create(String[] args) {
         Path path = Paths.get(args[0]);
@@ -69,13 +76,37 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
 
     protected static ConfigurationHolder readConfiguration(byte[] bytes) {
         try {
-            JSONObject jsonObject = new JSONObject(new String(bytes, Charset.forName("UTF-8")));
+            JSONObject jsonObject = new JSONObject(new String(bytes, StandardCharsets.UTF_8));
             FileDownloaderConfiguration result = new FileDownloaderConfiguration();
             extractConfigParameters(jsonObject, result);
             extractArtifactConfigurations(jsonObject, result);
+
+            checkForMissingConfiguration(result);
+
             return ConfigurationHolder.config(result);
         } catch (JSONException | ConfigurationException e) {
             return ConfigurationHolder.error("Failed to parse configuration file: " + e.getMessage(), e);
+        }
+    }
+
+    private static void checkForMissingConfiguration(FileDownloaderConfiguration result) throws ConfigurationException {
+        for (ArtifactConfiguration artifactConfiguration : result.getArtifactConfigurations()) {
+            if (RepositoryStrategy.NEXUS.equals(artifactConfiguration.getRepositoryStrategy())) {
+                checkParameter(result::getUsername, "nexusUsername");
+                checkParameter(result::getPassword, "nexusPassword");
+                checkParameter(result::getNexusBaseUrl, "nexusUrl");
+            }
+            if (RepositoryStrategy.GITHUB_PACKAGES.equals(artifactConfiguration.getRepositoryStrategy())) {
+                checkParameter(result::getGithubOwner, "githubOwner");
+                checkParameter(result::getGithubToken, "githubRepo");
+                checkParameter(result::getGithubRepo, "githubToken");
+            }
+        }
+    }
+
+    private static void checkParameter(Supplier supplier, String parameter) throws ConfigurationException {
+        if (supplier.get() == null) {
+            throw ConfigurationException.missingParameter(parameter, BASE_CONFIG);
         }
     }
 
@@ -105,9 +136,27 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
         JSONObject config = JsonHelper
             .getJsonObject(jsonObject, BASE_CONFIG)
             .orElseThrow(() -> ConfigurationException.missingParameter(BASE_CONFIG, "Configuration file"));
-        result.setUsername(getConfigParameter(config, "nexusUsername"));
-        result.setPassword(getConfigParameter(config, "nexusPassword"));
-        result.setBaseUrl(getConfigParameter(config, "nexusUrl"));
+
+        JsonHelper.getOptionalString(config, "nexusUsername").ifPresent(result::setUsername);
+        JsonHelper.getOptionalString(config, "nexusPassword").ifPresent(result::setPassword);
+        JsonHelper.getOptionalString(config, "nexusUrl").ifPresent(result::setNexusBaseUrl);
+
+        if (result.getUsername() != null || result.getPassword() != null || result.getNexusBaseUrl() != null) {
+            getConfigParameter(config, "nexusUsername");
+            getConfigParameter(config, "nexusPassword");
+            getConfigParameter(config, "nexusUrl");
+        }
+
+        JsonHelper.getOptionalString(config, "githubOwner").ifPresent(result::setGithubOwner);
+        JsonHelper.getOptionalString(config, "githubToken").ifPresent(result::setGithubToken);
+        JsonHelper.getOptionalString(config, "githubRepo").ifPresent(result::setGithubRepo);
+
+        if (result.getGithubOwner() != null || result.getGithubRepo() != null || result.getGithubToken() != null) {
+            getConfigParameter(config, "githubOwner");
+            getConfigParameter(config, "githubToken");
+            getConfigParameter(config, "githubRepo");
+        }
+
         result.setCreateRelativeSymlinks(getBooleanConfigParameter(BASE_CONFIG, config, "createRelativeSymlinks"));
 
         result.setVerbose(getBooleanConfigParameter(BASE_CONFIG, config, "verbose"));
@@ -192,13 +241,13 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
         return this.password;
     }
 
-    public void setBaseUrl(String baseUrl) {
-        this.baseUrl = baseUrl;
+    public void setNexusBaseUrl(String nexusBaseUrl) {
+        this.nexusBaseUrl = nexusBaseUrl;
     }
 
     @Override
     public String getNexusBaseUrl() {
-        return this.baseUrl;
+        return this.nexusBaseUrl;
     }
 
     public void setCreateRelativeSymlinks(boolean createRelativeSymlinks) {
@@ -251,5 +300,31 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
             return DownloaderConfiguration.super.getNexusPathRestSearch();
         }
         return nexusPathRestSearch;
+    }
+
+    @Override
+    public String getGithubOwner() {
+        return githubOwner;
+    }
+
+    public void setGithubOwner(String githubOwner) {
+        this.githubOwner = githubOwner;
+    }
+
+    @Override
+    public String getGithubRepo() {
+        return githubRepo;
+    }
+    public void setGithubRepo(String githubRepo) {
+        this.githubRepo = githubRepo;
+    }
+
+    @Override
+    public String getGithubToken() {
+        return githubToken;
+    }
+
+    public void setGithubToken(String githubToken) {
+        this.githubToken = githubToken;
     }
 }
