@@ -77,7 +77,7 @@ public class ArtifactHandler {
         if (!Files.exists(artifactPath)) {
             this.saveToFile(artifactConfiguration.getRepositoryStrategy(), downloadableArtifact, artifactPath);
         } else {
-            LOGGER.debug("Artifact already exists {}", artifactPath);
+            LOGGER.warn("Artifact already exists {}", artifactPath);
         }
 
         String calc = this.createSha1(artifactPath);
@@ -191,8 +191,8 @@ public class ArtifactHandler {
 
     private List<DownloadableArtifact> getDownloadableArtifacts(ArtifactConfiguration artifact)
             throws DownloaderException {
-        LOGGER.debug(
-            "Will download {}:{}:{} from {}",
+        LOGGER.info(
+            "Will download  {}:{}:{}  {}",
             artifact.getMavenGroupId(),
             artifact.getMavenArtifactId(),
             artifact.getArtifactVersion().orElse("LATEST"),

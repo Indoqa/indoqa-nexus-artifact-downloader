@@ -25,8 +25,12 @@ import com.indoqa.nexus.downloader.client.configuration.RepositoryStrategy;
 import org.apache.http.client.fluent.Executor;
 import org.apache.http.client.fluent.Request;
 import org.apache.http.client.fluent.Response;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class AbstractDownloader {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractDownloader.class);
 
     private final Executor executor;
 
@@ -42,10 +46,6 @@ public abstract class AbstractDownloader {
         }
     }
 
-    private AbstractDownloader(Executor executor) {
-        this.executor = executor;
-    }
-
     public final boolean handles(RepositoryStrategy strategy) {
         if (this.executor == null) {
             return false;
@@ -57,6 +57,9 @@ public abstract class AbstractDownloader {
 
     protected Response executeRequest(Request get) throws DownloaderException {
         try {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Executing: {}", get);
+            }
             return executor.execute(get);
         } catch (IOException e) {
             throw DownloaderException.errorExecutingRequest(get, e);

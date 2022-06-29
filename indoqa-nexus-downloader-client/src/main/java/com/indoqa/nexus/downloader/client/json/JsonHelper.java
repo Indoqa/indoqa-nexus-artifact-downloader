@@ -52,6 +52,14 @@ public final class JsonHelper {
         return Optional.of(jsonObject.getString(key));
     }
 
+    public static boolean getOptionalBoolean(JSONObject jsonObject, String key) {
+        if (!jsonObject.has(key) || jsonObject.isNull(key)) {
+            return false;
+        }
+
+        return jsonObject.getBoolean(key);
+    }
+
     public static String getString(JSONObject jsonObject, String key) {
         return getString(jsonObject, key, "");
     }

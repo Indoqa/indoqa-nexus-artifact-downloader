@@ -85,8 +85,8 @@ public class HttpDownloaderConfiguration extends FileDownloaderConfiguration {
         }
         hostname.ifPresent(h -> get.addHeader(HEADER_IDQ_NEXUS_DL_HOST, h));
 
-        LOGGER.trace("Request: {}", get);
-        LOGGER.trace("Project {}, hostname {}", project, hostname);
+        LOGGER.debug("Request: {}", get);
+        LOGGER.debug("Project {}, hostname {}", project, hostname);
 
         Response response = executor.execute(get);
         return response.returnContent().asBytes();

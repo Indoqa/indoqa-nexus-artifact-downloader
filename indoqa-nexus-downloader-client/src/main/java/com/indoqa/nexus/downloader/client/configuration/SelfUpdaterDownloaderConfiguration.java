@@ -78,6 +78,11 @@ public class SelfUpdaterDownloaderConfiguration implements DownloaderConfigurati
     }
 
     @Override
+    public boolean mostVerbose() {
+        return false;
+    }
+
+    @Override
     public String getUsername() {
         return "notused";
     }

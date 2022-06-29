@@ -105,7 +105,7 @@ public class NexusDownloaderClient {
             }
 
             if (holder.getHelpMessage() != null) {
-                LOGGER.info(holder.getHelpMessage());
+                LOGGER.warn(holder.getHelpMessage());
             }
             System.exit(-1);
         }
@@ -115,21 +115,26 @@ public class NexusDownloaderClient {
 
     private static void configureLogging(CommandLine commandLine) {
         if (commandLine.hasOption(OPTION_VERBOSE)) {
-            boolean multipleTimes =
-                Arrays.stream(commandLine.getOptions()).map(Option::getOpt).filter(v -> v.equalsIgnoreCase(OPTION_VERBOSE)).count()
-                    > 1;
+            long count = Arrays
+                .stream(commandLine.getOptions())
+                .map(Option::getOpt)
+                .filter(v -> v.equalsIgnoreCase(OPTION_VERBOSE))
+                .count();
 
-            configureLogging(true, multipleTimes);
+            configureLogging(true, count > 1, count > 2);
         }
     }
 
-    private static void configureLogging(boolean verbose, boolean moreVerbose) {
-        if (!verbose) {
-            return;
-        }
+    private static void configureLogging(boolean verbose, boolean moreVerbose, boolean mostVerbose) {
+        Level level = Level.WARN;
 
-        Level level = Level.DEBUG;
+        if (verbose) {
+            level = Level.INFO;
+        }
         if (moreVerbose) {
+            level = Level.DEBUG;
+        }
+        if (mostVerbose) {
             level = Level.TRACE;
         }
 
@@ -137,7 +142,7 @@ public class NexusDownloaderClient {
     }
 
     private static void configureLogging(DownloaderConfiguration configuration) {
-        configureLogging(configuration.verbose(), configuration.moreVerbose());
+        configureLogging(configuration.verbose(), configuration.moreVerbose(), configuration.mostVerbose());
     }
 
     private static void printHelp(Options options) {
@@ -152,7 +157,7 @@ public class NexusDownloaderClient {
             DEFAULT_DESC_PAD,
             null,
             true);
-        LOGGER.info(writer.toString());
+        LOGGER.warn(writer.toString());
     }
 
     private static Options getOptions() {

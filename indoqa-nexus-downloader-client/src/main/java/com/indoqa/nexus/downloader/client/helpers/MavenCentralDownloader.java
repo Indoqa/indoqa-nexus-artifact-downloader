@@ -68,7 +68,7 @@ public class MavenCentralDownloader extends AbstractMavenMetadataDownloader {
             String mavenMetadata = response.returnContent().asString();
             MavenMetadataHelper mavenMetadataHelper = new MavenMetadataHelper(mavenMetadata);
             Optional<String> version = mavenMetadataHelper.getLatest();
-            LOGGER.trace("Will use the following version '{}' as found in <latest> tag.", version);
+            LOGGER.debug("Will use the following version '{}' as found in <latest> tag.", version.orElse("NOT FOUND"));
             return version;
         } catch (IOException e) {
             throw DownloaderException.errorExecutingRequest(get, e);

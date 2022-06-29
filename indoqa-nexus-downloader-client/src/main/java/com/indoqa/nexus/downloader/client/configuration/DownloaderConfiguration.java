@@ -25,6 +25,8 @@ public interface DownloaderConfiguration {
 
     boolean moreVerbose();
 
+    boolean mostVerbose();
+
     default String getUsername() {
         return "";
     }

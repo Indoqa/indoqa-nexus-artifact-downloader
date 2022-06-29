@@ -52,6 +52,7 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
     private boolean deleteOld;
     private boolean verbose;
     private boolean moreVerbose;
+    private boolean mostVerbose;
     private String nexusPathRestSearch;
 
     private String githubOwner;
@@ -160,7 +161,8 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
         result.setCreateRelativeSymlinks(getBooleanConfigParameter(BASE_CONFIG, config, "createRelativeSymlinks"));
 
         result.setVerbose(getBooleanConfigParameter(BASE_CONFIG, config, "verbose"));
-        result.setMoreVerbose(getBooleanConfigParameter(BASE_CONFIG, config, "moreVerbose"));
+        result.setMoreVerbose(JsonHelper.getOptionalBoolean(config, "moreVerbose"));
+        result.setMostVerbose(JsonHelper.getOptionalBoolean(config, "mostVerbose"));
 
         JsonHelper.getOptionalString(config, "basePath").ifPresent(value -> result.setBasePath(Paths.get(value)));
         JsonHelper.getOptionalString(config, "nexusPathRestSearch").ifPresent(result::setNexusPathRestSearch);
@@ -217,6 +219,15 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
     @Override
     public boolean moreVerbose() {
         return this.moreVerbose;
+    }
+
+    public void setMostVerbose(boolean mostVerbose) {
+        this.mostVerbose = mostVerbose;
+    }
+
+    @Override
+    public boolean mostVerbose() {
+        return this.mostVerbose;
     }
 
     public void setBasePath(Path basePath) {

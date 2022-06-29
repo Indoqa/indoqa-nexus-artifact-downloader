@@ -82,7 +82,7 @@ public class NexusDownloader extends AbstractDownloader {
     }
 
     private JSONObject getJsonObject(URI uri) throws DownloaderException {
-        LOGGER.trace("Will use the following uri to search for artifacts '{}'", uri);
+        LOGGER.debug("Will use the following uri to search for artifacts '{}'", uri);
         Request get = Request.Get(uri);
         get.addHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
         try {

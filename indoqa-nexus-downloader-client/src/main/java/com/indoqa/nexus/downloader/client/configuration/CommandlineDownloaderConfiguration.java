@@ -150,7 +150,12 @@ public class CommandlineDownloaderConfiguration implements DownloaderConfigurati
     }
 
     public boolean moreVerbose() {
-        return this.commandLine.getOptionValue(OPTION_VERBOSE) != null;
+        return this.commandLine.getOptionValue(OPTION_VERBOSE) != null && this.commandLine.getOptionValue(OPTION_VERBOSE).length() > 1;
+    }
+
+    @Override
+    public boolean mostVerbose() {
+        return this.commandLine.getOptionValue(OPTION_VERBOSE) != null && this.commandLine.getOptionValue(OPTION_VERBOSE).length() > 2;
     }
 
     @Override
@@ -243,7 +248,7 @@ public class CommandlineDownloaderConfiguration implements DownloaderConfigurati
         try {
             int result = Integer.parseInt(optionValue);
             if (result < 0) {
-                LOGGER.debug("Negative value {} as count of artifacts to keep supplied. Will be ignored.", result);
+                LOGGER.info("Negative value {} as count of artifacts to keep supplied. Will be ignored.", result);
             }
             return result;
         } catch (NumberFormatException e) {

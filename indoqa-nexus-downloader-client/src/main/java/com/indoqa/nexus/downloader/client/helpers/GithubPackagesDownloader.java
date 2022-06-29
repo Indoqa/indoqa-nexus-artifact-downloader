@@ -90,7 +90,7 @@ public class GithubPackagesDownloader extends AbstractMavenMetadataDownloader {
             Optional<String> latest = mavenMetadataHelper.getLatest();
 
             if (latest.isPresent()) {
-                LOGGER.trace("Will use the following version '{}' as found in <latest> tag.", latest.get());
+                LOGGER.debug("Will use the following version '{}' as found in <latest> tag.", latest.get());
                 return latest;
             }
         } catch (IOException e) {
