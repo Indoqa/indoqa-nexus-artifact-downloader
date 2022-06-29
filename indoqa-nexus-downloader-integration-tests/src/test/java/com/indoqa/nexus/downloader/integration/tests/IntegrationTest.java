@@ -116,7 +116,7 @@ public class IntegrationTest {
 
         assertThat(
             appender.getMessage(),
-            both(containsString("Will download org.apache.maven:maven-artifact")).and(containsString("Symlink created")));
+            both(containsString("Will download  org.apache.maven:maven-artifact")).and(containsString("Symlink created")));
     }
 
     @Test

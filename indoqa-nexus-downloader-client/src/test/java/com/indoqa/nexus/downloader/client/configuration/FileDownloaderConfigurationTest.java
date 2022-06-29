@@ -220,15 +220,6 @@ public class FileDownloaderConfigurationTest {
         writeParameter(file, baseConfigParameter);
         configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
         assertNotNull(configurationHolder);
-        assertTrue("Missing parameter should lead to an error.", configurationHolder.isErroneous());
-        assertEquals(
-            "Failed to parse configuration file: Parameter 'moreVerbose' is missing in 'baseConfig'",
-            configurationHolder.getErrorMessage());
-
-        baseConfigParameter.put("moreVerbose", false);
-        writeParameter(file, baseConfigParameter);
-        configurationHolder = FileDownloaderConfiguration.create(new String[] {path});
-        assertNotNull(configurationHolder);
         assertTrue("Missing required parameter should lead to an error.", configurationHolder.isErroneous());
         assertEquals(
             "Failed to parse configuration file: Parameter 'mavenArtifacts' is missing in 'config'",
