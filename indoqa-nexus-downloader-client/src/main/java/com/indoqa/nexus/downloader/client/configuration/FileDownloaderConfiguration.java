@@ -17,16 +17,15 @@
 package com.indoqa.nexus.downloader.client.configuration;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.StreamSupport;
 
 import com.indoqa.nexus.downloader.client.json.JsonHelper;
 import org.json.JSONArray;
@@ -58,6 +57,7 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
     private String githubOwner;
     private String githubRepo;
     private String githubToken;
+    private RepositoryStrategy defaultRepositoryStrategy;
 
     public static ConfigurationHolder create(String[] args) {
         Path path = Paths.get(args[0]);
@@ -93,21 +93,22 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
     private static void checkForMissingConfiguration(FileDownloaderConfiguration result) throws ConfigurationException {
         for (ArtifactConfiguration artifactConfiguration : result.getArtifactConfigurations()) {
             if (RepositoryStrategy.NEXUS.equals(artifactConfiguration.getRepositoryStrategy())) {
-                checkParameter(result::getUsername, "nexusUsername");
-                checkParameter(result::getPassword, "nexusPassword");
-                checkParameter(result::getNexusBaseUrl, "nexusUrl");
+                checkParameter(result::getUsername, "nexusUsername", artifactConfiguration);
+                checkParameter(result::getPassword, "nexusPassword", artifactConfiguration);
+                checkParameter(result::getNexusBaseUrl, "nexusUrl", artifactConfiguration);
             }
             if (RepositoryStrategy.GITHUB_PACKAGES.equals(artifactConfiguration.getRepositoryStrategy())) {
-                checkParameter(result::getGithubOwner, "githubOwner");
-                checkParameter(result::getGithubToken, "githubRepo");
-                checkParameter(result::getGithubRepo, "githubToken");
+                checkParameter(result::getGithubOwner, "githubOwner", artifactConfiguration);
+                checkParameter(result::getGithubToken, "githubRepo", artifactConfiguration);
+                checkParameter(result::getGithubRepo, "githubToken", artifactConfiguration);
             }
         }
     }
 
-    private static void checkParameter(Supplier supplier, String parameter) throws ConfigurationException {
+    private static void checkParameter(Supplier supplier, String parameter, ArtifactConfiguration configuration) throws ConfigurationException {
         if (supplier.get() == null) {
-            throw ConfigurationException.missingParameter(parameter, BASE_CONFIG);
+            throw ConfigurationException.missingParameter(parameter, BASE_CONFIG,
+                "For artifact: " + configuration.getMavenArtifactId() + " strategy: " + configuration.getRepositoryStrategy());
         }
     }
 
@@ -125,7 +126,7 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
     private static void extractArtifactConfigurations(FileDownloaderConfiguration result, JSONArray artifacts) {
         for (int i = 0; i < artifacts.length(); i++) {
             try {
-                result.add(FileArtifactConfiguration.create(artifacts.getJSONObject(i)));
+                result.add(FileArtifactConfiguration.create(artifacts.getJSONObject(i), result.getDefaultRepositoryStrategy()));
             } catch (JSONException | ConfigurationException e) {
                 LOGGER.error("Could not read artifact configuration number {}, ", i, e);
             }
@@ -172,6 +173,14 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
             result.setCountToKeep(getIntegerParameter(OLD_ENTRIES, oldEntries.get(), "countToKeep"));
             result.setDeleteOld(getBooleanConfigParameter(OLD_ENTRIES, oldEntries.get(), "delete"));
         }
+
+        String defaultStrategy = JsonHelper.getString(config, "defaultRepoStrategy", "NEXUS");
+        try {
+            result.setDefaultRepositoryStrategy(Enum.valueOf(RepositoryStrategy.class, defaultStrategy));
+        } catch (Exception e) {
+            throw ConfigurationException.invalidValue("defaultRepoStrategy", BASE_CONFIG,
+                defaultStrategy, Arrays.toString(RepositoryStrategy.values()), e);
+        }
     }
 
     private static int getIntegerParameter(String context, JSONObject object, String parameter) throws ConfigurationException {
@@ -199,12 +208,21 @@ public class FileDownloaderConfiguration implements DownloaderConfiguration {
         }
     }
 
+    public void setDefaultRepositoryStrategy(RepositoryStrategy defaultRepositoryStrategy) {
+        this.defaultRepositoryStrategy = defaultRepositoryStrategy;
+    }
+
     private void add(FileArtifactConfiguration fileArtifactConfiguration) {
         this.artifactConfigurations.add(fileArtifactConfiguration);
     }
 
     public void setVerbose(boolean verbose) {
         this.verbose = verbose;
+    }
+
+    @Override
+    public RepositoryStrategy getDefaultRepositoryStrategy() {
+        return this.defaultRepositoryStrategy;
     }
 
     @Override

@@ -33,6 +33,10 @@ public final class ConfigurationException extends Exception {
         return new ConfigurationException(String.format(DEFAULT, "Parameter '%s' is missing in '%s'", parameter, context));
     }
 
+    public static ConfigurationException missingParameter(String parameter, String context, String message) {
+        return new ConfigurationException(String.format(DEFAULT, "Parameter '%s' is missing in '%s'. %s", parameter, context, message));
+    }
+
     public static ConfigurationException missingParameter(String parameter, String context, Exception e) {
         return new ConfigurationException(String.format(DEFAULT, "Parameter '%s' is missing in '%s'", parameter, context), e);
     }

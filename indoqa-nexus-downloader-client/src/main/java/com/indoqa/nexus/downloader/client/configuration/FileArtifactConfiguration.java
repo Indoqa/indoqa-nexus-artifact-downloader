@@ -33,7 +33,7 @@ public class FileArtifactConfiguration implements ArtifactConfiguration {
     private Optional<String> name;
     private RepositoryStrategy repositoryStrategy;
 
-    public static FileArtifactConfiguration create(JSONObject jsonObject) throws ConfigurationException {
+    public static FileArtifactConfiguration create(JSONObject jsonObject, RepositoryStrategy defaultRepositoryStrategy) throws ConfigurationException {
         FileArtifactConfiguration result = new FileArtifactConfiguration();
 
         result.setMavenArtifactId(getConfigParameter(jsonObject, "artifactId"));
@@ -42,7 +42,7 @@ public class FileArtifactConfiguration implements ArtifactConfiguration {
         result.setMavenType(getConfigParameter(jsonObject, "type"));
         result.setName(JsonHelper.getOptionalString(jsonObject, "name"));
         result.setVersion(JsonHelper.getOptionalString(jsonObject, "version"));
-        result.setRepositoryStrategy(getEnum(jsonObject, "repoStrategy", RepositoryStrategy.NEXUS));
+        result.setRepositoryStrategy(getEnum(jsonObject, "repoStrategy", defaultRepositoryStrategy));
 
         return result;
     }

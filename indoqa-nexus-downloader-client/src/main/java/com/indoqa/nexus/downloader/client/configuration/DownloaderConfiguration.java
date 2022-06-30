@@ -21,6 +21,8 @@ import java.nio.file.Paths;
 
 public interface DownloaderConfiguration {
 
+    RepositoryStrategy getDefaultRepositoryStrategy();
+
     boolean verbose();
 
     boolean moreVerbose();

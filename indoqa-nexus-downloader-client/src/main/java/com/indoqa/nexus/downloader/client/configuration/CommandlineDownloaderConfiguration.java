@@ -145,6 +145,11 @@ public class CommandlineDownloaderConfiguration implements DownloaderConfigurati
         return options;
     }
 
+    @Override
+    public RepositoryStrategy getDefaultRepositoryStrategy() {
+        return getRepositoryStrategy();
+    }
+
     public boolean verbose() {
         return this.commandLine.hasOption(OPTION_VERBOSE);
     }

@@ -68,6 +68,11 @@ public class SelfUpdaterDownloaderConfiguration implements DownloaderConfigurati
     }
 
     @Override
+    public RepositoryStrategy getDefaultRepositoryStrategy() {
+        return getRepositoryStrategy();
+    }
+
+    @Override
     public boolean verbose() {
         return false;
     }

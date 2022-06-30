@@ -240,7 +240,7 @@ public class FileDownloaderConfigurationTest {
         assertNotNull(configurationHolder);
         assertTrue("Missing required parameter should lead to an error.", configurationHolder.isErroneous());
         assertEquals(
-            "Failed to parse configuration file: Parameter 'nexusUsername' is missing in 'baseConfig'",
+            "Failed to parse configuration file: Parameter 'nexusUsername' is missing in 'baseConfig'. For artifact: testing strategy: NEXUS",
             configurationHolder.getErrorMessage());
 
         baseConfigParameter.put("nexusUsername", "user");
@@ -276,7 +276,7 @@ public class FileDownloaderConfigurationTest {
         assertNotNull(configurationHolder);
         assertTrue("Missing required parameter should lead to an error.", configurationHolder.isErroneous());
         assertEquals(
-            "Failed to parse configuration file: Parameter 'githubOwner' is missing in 'baseConfig'",
+            "Failed to parse configuration file: Parameter 'githubOwner' is missing in 'baseConfig'. For artifact: testing strategy: GITHUB_PACKAGES",
             configurationHolder.getErrorMessage());
 
         baseConfigParameter.put("githubOwner", "owner");
