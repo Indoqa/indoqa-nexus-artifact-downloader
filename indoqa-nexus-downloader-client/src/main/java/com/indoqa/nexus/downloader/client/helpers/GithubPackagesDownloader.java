@@ -61,11 +61,20 @@ public class GithubPackagesDownloader extends AbstractMavenMetadataDownloader {
             ArtifactType artifactType = ArtifactType.extractFromClassifierExtension(artifactConfiguration.getMavenType());
             String assetBase = this.createAssetBaseName(artifactId, Optional.of(version), artifactType);
             String assetBaseUrl = this.createAssertUrl(groupId, artifactId, baseVersion, assetBase);
-            String sha1sum = this.getAssetSha1sum(assetBaseUrl);
 
-            result.add(DownloadableArtifact.of(version, assetBaseUrl, sha1sum));
+            result.add(DownloadableArtifact.of(version, assetBaseUrl, null));
         }
-        return result;
+        Optional<DownloadableArtifact> latest = result.stream().max(DownloadableArtifact::compareTo);
+        if (!latest.isPresent()) {
+            throw DownloaderException.notFound(
+                artifactConfiguration.getMavenGroupId(),
+                artifactConfiguration.getMavenArtifactId(),
+                artifactConfiguration.getMavenType());
+        }
+
+        DownloadableArtifact artifact = latest.get();
+        artifact.setSha1(this.getAssetSha1sum(artifact.getDownloadUrl()));
+        return Collections.singletonList(artifact);
     }
 
     private Set<String> getLatestArtifactVersions(String groupId, String artifactId, Optional<String> version)
