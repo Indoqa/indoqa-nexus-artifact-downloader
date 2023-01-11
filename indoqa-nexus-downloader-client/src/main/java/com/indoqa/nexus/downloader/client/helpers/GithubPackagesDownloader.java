@@ -22,6 +22,8 @@ import java.util.*;
 import com.indoqa.nexus.downloader.client.configuration.ArtifactConfiguration;
 import com.indoqa.nexus.downloader.client.configuration.DownloaderConfiguration;
 import com.indoqa.nexus.downloader.client.configuration.RepositoryStrategy;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.fluent.ContentResponseHandler;
 import org.apache.http.client.fluent.Request;
 import org.apache.http.client.fluent.Response;
 import org.slf4j.Logger;
@@ -82,8 +84,13 @@ public class GithubPackagesDownloader extends AbstractMavenMetadataDownloader {
         Request get = Request.Get(this.createAssertUrl(groupId, artifactId, version, MAVEN_METADATA_XML));
         try {
             Response response = this.executeRequest(get);
-            String mavenMetadata = response.returnContent().asString();
-            return new MavenMetadataHelper(mavenMetadata).getVersions();
+            HttpResponse httpResponse = response.returnResponse();
+            if (version.isPresent() && httpResponse.getStatusLine().getStatusCode() == 404) {
+                return Collections.singleton(version.get());
+            } else {
+                String mavenMetadata = new ContentResponseHandler().handleEntity(httpResponse.getEntity()).asString();
+                return new MavenMetadataHelper(mavenMetadata).getVersions();
+            }
         } catch (IOException e) {
             throw DownloaderException.errorExecutingRequest(get, e);
         }
